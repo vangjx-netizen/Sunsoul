@@ -1,0 +1,18 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+await p.evaluate(()=>{S.user={phone:'2098798512',name:'C'};ST.shops.push({id:'s2',name:'ຮ້ານ 2',prov:CAP,pickup:'self'});
+ST.tp.push({id:'b',name:'ກະເປົາ',cat:'bags',shopId:'s2',shopName:'ຮ້ານ 2',variants:[{label:'ດຳ',price:150000,stock:3}],imgs:[],active:true,createdAt:1,stockAt:1});mergeP();
+ST.orders.push({id:'o1',no:'SS-1',pid:'b',pname:'ກະເປົາ',vlabel:'ດຳ',qty:1,price:150000,shopId:'s2',shopName:'ຮ້ານ 2',status:'await_pickup',acct:'2098798512',cust:{name:'C',phone:'020 1111 2222'},addr:'ສາຂາ ອານຸສິດ, ໂທ 020 1111 2222, ເມືອງ ໄຊເສດຖາ, ນະຄອນຫຼວງວຽງຈັນ',createdAt:1,kind:'local',history:[]});
+ST.locks.o1={price:150000,qty:1,fee:0,total:150000,pay:'qr',verifiedAt:1};S.shopId='s2';S.tab='store';S.ss='orders';render()});
+await p.click('[data-x="sship"][data-id="o1"]');await p.waitForTimeout(60);
+ok(await p.evaluate(()=>byId(ST.orders,'o1').status)==='await_pickup','nothing given: not confirmed');
+const [fc]=await Promise.all([p.waitForEvent('filechooser'),p.click('[data-x="sphoto"][data-id="o1"]')]);await fc.setFiles(path.join(__dirname,'fixtures','px.png'));await p.waitForTimeout(300);
+await p.click('[data-x="sship"][data-id="o1"]');await p.waitForTimeout(80);
+const o=await p.evaluate(()=>{const o=byId(ST.orders,'o1');return {s:o.status,n:o.receiptNo,ph:(o.packPhotos||[]).length,h:!!o.handedAt}});
+ok(o.s==='shipping'&&o.n===''&&o.ph===1&&o.h,'receipt photo alone is enough to confirm hand-over');
+ok((await p.textContent('main')).includes('ເບິ່ງຮູບໃບຝາກ'),'shop card says it was handed over');
+await p.evaluate(()=>{S.tab='orders';S.oid='o1';render()});
+ok((await p.textContent('main')).includes('ເບິ່ງຮູບໃບຝາກ')&&(await p.$$('main .photos img')).length===1,'customer sees "handed to carrier" and the receipt photo');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();

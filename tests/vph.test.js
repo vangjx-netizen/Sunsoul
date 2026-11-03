@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.addInitScript(()=>{window.claude={use:async n=>n==='user'?{canEdit:async()=>true}:null}});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+const px='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
+await p.evaluate(r=>{['a','b','c'].forEach(k=>ST.up[k]={data:r});ST.shops.push({id:'s1',name:'tt'});
+ST.shopProducts.push({id:'sp1',status:'live',name:'ເສື້ອ',cat:'clothes',shopId:'s1',shopName:'tt',weight:0.5,variants:[{label:'M.ຂຽວ',price:985000,stock:1,img:'u:a'},{label:'M.ຂຽວ2',price:985000,stock:1,img:'u:b'},{label:'M.ຟ້າ',price:985000,stock:1,img:'u:c'}],imgs:['u:a'],active:true,createdAt:1,stockAt:1,updatedAt:1});mergeP();
+S.shopId='s1';S.tab='store';S.ss='products';S.sp=null;render()},px);
+await p.click('[data-x="spedit"][data-id="sp1"]');await p.waitForTimeout(100);
+ok((await p.$$('[data-x="spvphx"]')).length===3,'each option photo has a small × button');
+await p.click('[data-x="spvphx"][data-i="1"]');await p.waitForTimeout(80);
+ok((await p.$$('.vr')).length===3&&(await p.$$('[data-x="spvphx"]')).length===2,'× removes only the photo; the row stays');
+await p.click('[data-x="sprmv"][data-i="2"]');await p.waitForTimeout(80);
+ok((await p.$$('.vr')).length===2,'red ✕ removes the whole row');
+await p.click('[data-x="spsend"]');await p.waitForTimeout(100);
+const v=await p.evaluate(()=>byId(ST.products,'sp1').variants.map(x=>x.label+':'+(x.img||'none')).join());
+ok(v==='M.ຂຽວ:u:a,M.ຂຽວ2:none','saved: 2 options, second without photo ('+v+')');
+await p.click('[data-x="spedit"][data-id="sp1"]');await p.waitForTimeout(100);await (await p.$('.vt')).screenshot({path:path.join(__dirname,'out','vph.png')});
+// team form too
+await p.evaluate(()=>{S.tab='team';S.sub='products';S.draft=null;render()});
+await p.evaluate(()=>{const x=byId(ST.products,'sp1');S.draft={...blankProduct(),...pdoc(x),id:x.id,shopName:'tt',variants:varsLeft(x),imgs:[...imgsOf(x)],kw:[]};render()});
+ok((await p.$$('[data-act="vphx"]')).length===1,'team form has the same × on option photos');
+await p.click('[data-act="vphx"][data-i="0"]');await p.waitForTimeout(60);
+ok((await p.$$('[data-act="vphx"]')).length===0,'team × removes the photo');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();

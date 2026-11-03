@@ -1,0 +1,22 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+await p.evaluate(()=>{S.user={phone:'2098798512',name:'C'};ST.shops.push({id:'s1',name:'tt'});
+ST.tp.push({id:'p1',name:'ເສື້ອໄໝ',cat:'clothes',shopId:'s1',shopName:'tt',variants:[{label:'M',price:100000,stock:3}],imgs:[],active:true,createdAt:1,stockAt:1},{id:'p2',name:'ເສື້ອຄຸມ',cat:'clothes',shopId:'s1',shopName:'tt',variants:[{label:'M',price:120000,stock:3}],imgs:[],active:true,createdAt:1,stockAt:1});mergeP();
+ST.orders.push({id:'A',no:'SS-A',pid:'p1',pname:'ເສື້ອໄໝ',vlabel:'M',qty:1,price:100000,cat:'clothes',shopId:'s1',shopName:'tt',status:'await_shop',shopDeadline:Date.now()+3600e3,acct:'2098798512',cust:{name:'C',phone:'2098798512'},createdAt:Date.now(),kind:'local',history:[]});S.tab='home';S.screen='home';render()});
+await p.evaluate(async()=>{await answerOrder('A',false);await new Promise(r=>setTimeout(r,30));render()});
+let t=await p.textContent('main');ok(t.includes('ຮ້ານແຈ້ງວ່າສິນຄ້າໝົດ'),'home shows a red "shop says sold out" banner');
+ok((await p.textContent('.nav [data-tab="orders"] .nbadge'))==='1','"my orders" tab shows a red badge');
+await p.evaluate(()=>{S.tab='orders';S.oid=null;S.showOld=false;render()});
+ok((await p.textContent('main')).includes('SS-A'),'the declined order stays in the main list until seen');
+await p.click('[data-x="oopen"][data-id="A"]');await p.waitForTimeout(100);
+t=await p.textContent('main');ok(t.includes('ສິນຄ້ານີ້ໝົດແລ້ວ')&&t.includes('ເສື້ອຄຸມ'),'order page explains and suggests similar products');
+ok(await p.evaluate(()=>byId(ST.orders,'A').custSeen===true),'opening it marks it seen');
+await p.evaluate(()=>{S.oid=null;render()});t=await p.textContent('main');
+ok(!t.includes('SS-A')&&t.includes('ສຳເລັດແລ້ວ'),'after seeing, it moves to the finished section');
+await p.evaluate(()=>{S.tab='home';S.screen='home';render()});ok(!(await p.textContent('main')).includes('ສິນຄ້າໝົດ')&&!(await p.$('.nav [data-tab="orders"] .nbadge')),'banner and badge are gone');
+// a customer's own cancellation does not trigger it
+await p.evaluate(()=>{ST.orders.push({id:'B',no:'SS-B',pid:'p1',pname:'x',vlabel:'M',qty:1,price:1,shopId:'s1',status:'cancelled',cancelWhy:'customer',acct:'2098798512',cust:{name:'C',phone:'2098798512'},createdAt:Date.now(),history:[]});render()});
+ok(!(await p.textContent('main')).includes('ຖືກຍົກເລີກ'),'own cancellations do not raise an alert');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();

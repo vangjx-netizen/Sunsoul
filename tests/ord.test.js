@@ -1,0 +1,15 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+await p.evaluate(()=>{S.user={phone:'20 9879 8512',name:'ส'};ST.shops.push({id:'s1',name:'tt',map:'17.9700,102.6100'});
+ST.tp.push({id:'p1',name:'ເສື້ອຄຸມ',cat:'clothes',shopId:'s1',shopName:'tt',weight:0.5,variants:[{label:'S',price:230000,stock:9}],imgs:[],active:true,createdAt:1,stockAt:1});mergeP();
+ST.orders.push({id:'old1',no:'SS-OLD1',pid:'p1',pname:'ເສື້ອກິລາ',vlabel:'—',qty:1,price:1,shopId:'s1',status:'delivered',deliveredAt:Date.now()-9e8,receivedAt:1,cust:{name:'ส',phone:'2098798512'},createdAt:1,kind:'local'});
+S.pid='p1';S.vi=0;S.co={name:'Vang Joua',phone:'20 989 8512',addr:'ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ',map:'17.9744, 102.6351'};S.coCart=false;S.tab='home';S.screen='checkout';render()});
+await p.evaluate(async()=>{await placeOrder();await new Promise(r=>setTimeout(r,30));const o=ST.orders.find(o=>o.pname==='ເສື້ອຄຸມ');await answerOrder(o.id,true);await new Promise(r=>setTimeout(r,30));S.tab='orders';S.oid=null;render()});
+const t=await p.textContent('main');
+ok(t.includes('ເສື້ອຄຸມ'),'order with a different recipient phone appears in the account\'s list');
+ok(!t.includes('SS-OLD1')&&t.includes('ສຳເລັດແລ້ວ (1)'),'received order is moved out of the main list');
+await p.click('[data-x="showold"]');await p.waitForTimeout(80);ok((await p.textContent('main')).includes('SS-OLD1'),'finished orders can still be opened from "ສຳເລັດແລ້ວ"');
+await p.evaluate(()=>{S.tab='home';S.screen='home';render()});ok((await p.textContent('main')).includes('ລໍທ່ານຈ່າຍເງິນ'),'home shows the pay reminder for it');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();

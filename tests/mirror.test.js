@@ -1,0 +1,15 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+const px='data:image/png;base64,'+require('fs').readFileSync(path.join(__dirname,'fixtures','px.png')).toString('base64');
+await p.evaluate(px=>{const id='a'.repeat(32);window.__gets=0;H.db={doc:k=>({get:async()=>{__gets++;return k==='imgm/'+id?{exists:true,data:()=>({d:px})}:{exists:false}},set:async()=>{}})};
+ST.shops.push({id:'s1',name:'tt'});ST.tp.push({id:'p1',name:'ໝໍ້',cat:'x',shopId:'s1',shopName:'tt',variants:[{label:'—',price:1000,stock:3}],imgs:[id],active:true,createdAt:1,stockAt:1});mergeP();S.tab='home';S.screen='home';render()},px);
+await p.waitForTimeout(800);
+const src=await p.evaluate(()=>[...document.querySelectorAll('img')].map(i=>i.getAttribute('src')).find(s=>s&&s.startsWith('data:image/png')));
+ok(!!src,'a /_blob image that fails is replaced by the db copy');
+ok(await p.evaluate(()=>BLOBBAD),'page remembers that /_blob does not work here');
+await p.evaluate(()=>render());await p.waitForTimeout(100);
+ok(await p.evaluate(()=>[...document.querySelectorAll('img')].some(i=>(i.getAttribute('src')||'').startsWith('data:image/png'))),'next render uses the copy directly');
+ok(await p.evaluate(()=>__gets)===1,'the copy is fetched once, not per render');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();

@@ -1,0 +1,25 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+await p.evaluate(()=>{S.user={phone:'2098798512',name:'C'};ST.shops.push({id:'s1',name:'tt'});
+ST.tp.push({id:'p1',name:'ເສື້ອໄໝ',cat:'clothes',shopId:'s1',shopName:'tt',variants:[{label:'M',price:100000,stock:2}],imgs:[],active:true,createdAt:1,stockAt:1});mergeP();const now=Date.now();
+const mk=(id,st,extra)=>ST.orders.push({id,no:'SS-'+id,pid:'p1',pname:'ເສື້ອໄໝ',vlabel:'M',qty:1,price:100000,shopId:'s1',shopName:'tt',status:st,acct:'2098798512',cust:{name:'C',phone:'2098798512'},createdAt:now,shopAt:now,kind:'local',history:[],...(extra||{})});
+mk('A','await_shop',{shopDeadline:now+3600e3});mk('B','await_verify',{slipId:'u:x'});S.tab='orders';S.oid='A';render()});
+ok(await p.evaluate(()=>stockLeft(byId(ST.products,'p1'),byId(ST.products,'p1').variants[0]))===0,'before: the order holds the last item');
+await p.click('[data-x="ccancel"][data-id="A"]');await p.waitForTimeout(60);
+ok((await p.textContent('main')).includes('ກົດອີກຄັ້ງ')&&await p.evaluate(()=>byId(ST.orders,'A').status)==='await_shop','first tap asks to confirm');
+await p.click('[data-x="ccancel"][data-id="A"]');await p.waitForTimeout(80);
+ok(await p.evaluate(()=>byId(ST.orders,'A').status==='cancelled'&&byId(ST.orders,'A').cancelWhy==='customer'),'second tap cancels the order');
+ok((await p.textContent('main')).includes('ທ່ານຍົກເລີກອໍເດີນີ້ແລ້ວ'),'order page says the customer cancelled it');
+ok(await p.evaluate(()=>stockLeft(byId(ST.products,'p1'),byId(ST.products,'p1').variants[0]))===1,'the item goes back on sale');
+await p.evaluate(()=>{S.oid='B';render()});ok(!(await p.$('[data-x="ccancel"]')),'no cancel button once a slip has been sent');
+// shop is told
+await p.evaluate(()=>{S.shopId='s1';S.tab='store';S.ss='orders';render()});
+const st=await p.textContent('main');
+ok(st.includes('ລູກຄ້າຍົກເລີກອໍເດີ')&&st.includes('SS-A')&&!!(await p.$('[data-x="sack"][data-id="A"]')),'shop sees a red "customer cancelled" card on top');
+ok((await p.textContent('.nav .nbadge'))==='1','shop orders tab shows a badge');
+await p.screenshot({path:path.join(__dirname,'out','cx-shop.png')});
+await p.click('[data-x="sack"][data-id="A"]');await p.waitForTimeout(80);
+ok(!(await p.textContent('main')).includes('SS-A')&&!(await p.$('.nav .nbadge')),'after "acknowledged" the card and badge are gone');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();

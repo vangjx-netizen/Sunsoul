@@ -1,0 +1,28 @@
+const { chromium } = require('playwright');const path=require('path');let fails=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)fails++};
+(async()=>{const b=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});const p=await b.newPage({viewport:{width:430,height:900}});
+p.on('pageerror',e=>{console.log('ERR',e.message);fails++});
+await p.goto('file://'+path.join(__dirname,'..','public','index.html'));await p.waitForTimeout(300);
+await p.evaluate(()=>{ST.shops.push({id:'s1',name:'Kham',verified:true,verifiedAt:Date.now()},{id:'s2',name:'Other'});
+ const mk=(id,sid,n)=>({id,name:n,cat:'x',shopId:sid,shopName:sid==='s1'?'Kham':'Other',variants:[{label:'—',price:1000,stock:3}],imgs:[],active:true,createdAt:1,stockAt:1});
+ ST.tp.push(mk('p1','s1','ໂທລະສັບ'),mk('p2','s2','ພັດລົມ'));mergeP();
+ ST.orders.push({id:'o1',shopId:'s1',shopName:'Kham',status:'delivered',history:[]},{id:'o2',shopId:'s1',shopName:'Kham',status:'delivered',history:[]});
+ S.tab='home';S.screen='home';render()});
+const cards=await p.$$eval('.info',l=>l.map(x=>x.textContent));
+ok(cards.some(c=>c.includes('ໂທລະສັບ')&&c.includes('ຢືນຢັນແລ້ວ')),'feed: verified seller has the badge');
+ok(cards.some(c=>c.includes('ພັດລົມ')&&!c.includes('ຢືນຢັນແລ້ວ')),'feed: unverified seller has no badge');
+await p.evaluate(()=>{S.pid='p1';S.screen='product';render()});let t=await p.textContent('main');
+ok(t.includes('ຜູ້ຂາຍຢືນຢັນຕົວຕົນກັບ Sunsoul ແລ້ວ')&&t.includes('ຂາຍສຳເລັດ 2 ຄັ້ງ')&&t.includes('ເງິນຢູ່ກັບ Sunsoul'),'product page: trust box with sales count and buyer protection');
+await p.screenshot({path:path.join(__dirname,'out','badge.png')});
+await p.evaluate(()=>{S.pid='p2';render()});t=await p.textContent('main');
+ok(!t.includes('ຍັງບໍ່ໄດ້ຢືນຢັນຕົວຕົນ')&&t.includes('ເງິນຢູ່ກັບ Sunsoul'),'unverified: buyers see no warning, only buyer protection');
+await p.evaluate(()=>{S.canAdmin=true;render()});ok(!(await p.textContent('main')).includes('ຍັງບໍ່ໄດ້ຢືນຢັນ'),'owner sees the product page exactly like a buyer');
+await p.evaluate(()=>{S.tab='team';S.sub='shops';render()});ok((await p.textContent('main')).includes('ຍັງບໍ່ຢືນຢັນ'),'team shop list shows "not verified yet"');await p.evaluate(()=>{S.canAdmin=false;S.tab='home';render()});
+// team marks s2 verified
+await p.evaluate(()=>{S.canAdmin=true;S.tab='team';S.sub='shops';render()});
+await p.click('[data-act="edits"][data-id="s2"]');await p.waitForTimeout(80);
+ok(!(await p.isChecked('[data-sfver]')),'team form shows current state (not verified)');
+await p.check('[data-sfver]');await p.check('[data-agree]');await p.click('[data-act="saves"]');await p.waitForTimeout(200);
+ok(await p.evaluate(()=>{const s=byId(ST.shops,'s2');return s.verified&&s.verifiedAt>0}),'team can mark a shop verified');
+await p.click('[data-act="edits"][data-id="s2"]');await p.waitForTimeout(80);await p.uncheck('[data-sfver]');await p.click('[data-act="saves"]');await p.waitForTimeout(200);
+ok(await p.evaluate(()=>{const s=byId(ST.shops,'s2');return !s.verified&&!s.verifiedAt}),'and remove it');
+await b.close();console.log(fails?fails+' FAILED':'ALL PASSED');process.exit(fails?1:0)})();
