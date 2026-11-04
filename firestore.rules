@@ -1,0 +1,137 @@
+rules_version = '2';
+
+// Sunsoul security rules.
+// Who is who:
+//   team      → the uid has a document in admins/{uid} (added by hand in the Firebase console)
+//   buyer     → the uid stored on the order / case (every visitor has a uid, anonymous at first)
+//   shop      → shops/{id}.ownerUid is the uid, or the verified phone number equals shops/{id}.phoneE164
+// Money is never trusted from customers or shops: amounts live in orderLock, which only the team writes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function myPhone() { return request.auth.token.get('phone_number', ''); }
+    function isTeam() { return signedIn() && exists(/databases/$(database)/documents/admins/$(me())); }
+    function shopPath(id) { return /databases/$(database)/documents/shops/$(id); }
+    function ownsShop(id) {
+      return signedIn() && id is string && id != '' && exists(shopPath(id))
+        && (get(shopPath(id)).data.get('ownerUid', '') == me()
+            || (myPhone() != '' && get(shopPath(id)).data.get('phoneE164', '') == myPhone()));
+    }
+    function newData() { return request.resource.data; }
+    function same(f) { return newData().get(f, null) == resource.data.get(f, null); }
+    function onlyChanged(keys) { return newData().diff(resource.data).affectedKeys().hasOnly(keys); }
+    function moved(from, to) { return resource.data.status in from && newData().status == to; }
+    function sameStatus() { return newData().status == resource.data.status; }
+
+    // ---- public catalogue: everyone reads, only the team writes ----
+    match /products/{id} { allow read: if true; allow write: if isTeam(); }
+    match /shops/{id}    { allow read: if true; allow write: if isTeam(); }
+    match /settings/{id} { allow read: if true; allow write: if isTeam(); }
+    match /imgm/{id}     { allow read: if true; allow write: if isTeam(); }
+    match /shopPrivate/{id} { allow read, write: if isTeam(); }   // shops' bank accounts
+    match /admins/{uid}  { allow get: if signedIn() && me() == uid; }
+
+    // products a shop lists itself
+    match /shopProducts/{id} {
+      allow read: if true;
+      allow create: if isTeam() || ownsShop(newData().shopId);
+      allow update: if isTeam() || (ownsShop(resource.data.shopId) && same('shopId'));
+      allow delete: if isTeam() || ownsShop(resource.data.shopId);
+    }
+    // a shop marks one of its products as sold out
+    function productShop(pid) {
+      return exists(/databases/$(database)/documents/products/$(pid))
+        ? get(/databases/$(database)/documents/products/$(pid)).data.get('shopId', '')
+        : get(/databases/$(database)/documents/shopProducts/$(pid)).data.get('shopId', '');
+    }
+    match /shopOff/{pid} {
+      allow read: if true;
+      allow create, update: if isTeam() || (ownsShop(newData().shopId) && newData().shopId == productShop(pid));
+      allow delete: if isTeam() || ownsShop(resource.data.shopId);
+    }
+
+    // photos people send (payment slips, return photos, shop product photos) as data URLs; ids are random
+    match /upimgs/{id} {
+      allow get: if signedIn();
+      allow list: if isTeam();
+      allow create: if signedIn() && newData().data is string && newData().data.size() < 600000;
+      allow update, delete: if isTeam();
+    }
+
+    // ---- orders ----
+    match /orders/{id} {
+      allow read: if isTeam() || (signedIn() && resource.data.uid == me()) || ownsShop(resource.data.shopId);
+      allow create: if signedIn() && newData().uid == me() && newData().status == 'await_shop'
+        && !newData().keys().hasAny(['paidOutAt', 'payoutId', 'verifiedAt', 'refundedAt']);
+      allow update: if isTeam() || buyerUpdate() || shopUpdate();
+      allow delete: if isTeam();
+
+      function fixed() { return same('uid') && same('shopId') && same('pid') && same('qty') && same('price') && same('no'); }
+      function buyerUpdate() {
+        return signedIn() && resource.data.uid == me() && fixed()
+          && onlyChanged(['status', 'slipId', 'slipRejected', 'paidAt', 'deliveredAt', 'receivedAt', 'receivedBy',
+                          'caseId', 'custHidden', 'custSeen', 'cancelWhy', 'history'])
+          && (sameStatus()
+              || moved(['await_pay', 'await_verify'], 'await_verify')                                  // sends a slip
+              || (moved(['await_shop', 'await_pay'], 'cancelled') && newData().cancelWhy == 'customer') // cancels
+              || moved(['shipping'], 'delivered'));                                                    // receives (shop shipped)
+      }
+      function shopUpdate() {
+        return ownsShop(resource.data.shopId) && fixed()
+          && onlyChanged(['status', 'shopAt', 'fee', 'km', 'payDeadline', 'declinedAt', 'shopDeadline', 'cancelWhy',
+                          'shopHidden', 'shopAckAt', 'shopReady', 'handedAt', 'receiptNo', 'carrier', 'packPhotos',
+                          'shippedBy', 'history'])
+          && (sameStatus()
+              || moved(['await_shop'], 'await_pay') || moved(['await_shop'], 'declined')
+              || moved(['await_shop'], 'cancelled') || moved(['declined'], 'await_shop')
+              || moved(['await_pickup'], 'shipping'));
+      }
+    }
+
+    // What stock calculation needs from every order, without names, phones or addresses.
+    // Anyone may read it; it can only be written to match the order it mirrors.
+    match /orderPub/{id} {
+      function ord() { return /databases/$(database)/documents/orders/$(id); }
+      function mirrors() {
+        let o = get(ord()).data;
+        return newData().keys().hasOnly(['pid', 'vlabel', 'qty', 'status', 'shopAt', 'createdAt', 'shopId'])
+          && newData().pid == o.pid && newData().get('vlabel', '') == o.get('vlabel', '')
+          && newData().get('qty', 1) == o.get('qty', 1) && newData().status == o.status
+          && newData().get('shopAt', null) == o.get('shopAt', null) && newData().get('createdAt', null) == o.get('createdAt', null)
+          && newData().get('shopId', '') == o.get('shopId', '');
+      }
+      allow read: if true;
+      allow create, update: if signedIn() && exists(ord()) && mirrors()
+        && (isTeam() || get(ord()).data.uid == me() || ownsShop(get(ord()).data.get('shopId', '')));
+      allow delete: if isTeam();
+    }
+
+    // money: written only by the team; buyer and shop of the order may read it
+    match /orderLock/{id} {
+      allow read: if isTeam() || (signedIn() && resource.data.get('uid', '') == me()) || ownsShop(resource.data.get('shopId', ''));
+      allow write: if isTeam();
+    }
+
+    // ---- return / complaint cases ----
+    match /cases/{id} {
+      allow read: if isTeam() || (signedIn() && resource.data.uid == me());
+      allow create: if signedIn() && newData().uid == me() && newData().status == 'open'
+        && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt']);
+      allow update: if isTeam()
+        || (signedIn() && resource.data.uid == me() && same('uid')
+            && (onlyChanged(['custSeenAt'])
+                || (resource.data.get('appeal', null) == null && onlyChanged(['appeal', 'status', 'log']) && newData().status == 'open')));
+      allow delete: if isTeam();
+    }
+
+    // ---- people who apply to sell; documents are keyed by the applicant's uid ----
+    match /sellerApps/{uid}     { allow read, write: if isTeam() || (signedIn() && me() == uid); }
+    match /kyc/{uid}            { allow read, write: if isTeam() || (signedIn() && me() == uid); }   // bank accounts
+    match /sellerDecision/{uid} { allow read: if isTeam() || (signedIn() && me() == uid); allow write: if isTeam(); }
+
+    // each person's private profile (name, saved addresses)
+    match /data/users/{uid}/{rest=**} { allow read, write: if signedIn() && me() == uid; }
+  }
+}

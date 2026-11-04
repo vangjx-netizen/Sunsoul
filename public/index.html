@@ -264,7 +264,7 @@ dialog#lb[open]{display:flex;flex-direction:column;gap:10px}
 <input type="file" id="s3file" accept="image/*" hidden>
 <dialog id="lb"></dialog>
 <script>/* Backend: Claude Artifact runtime by default; Firebase when served from Firebase Hosting (see backend-core.js) */
-if(/(\.web\.app|\.firebaseapp\.com)$/.test(location.hostname))window.SUNSOUL_BACKEND=import("./backend-firebase.js").then(m=>m.start());</script>
+if(/(\.web\.app|\.firebaseapp\.com)$/.test(location.hostname)||(/^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&/[?&]fb=1\b/.test(location.search)))window.SUNSOUL_BACKEND=import("./backend-firebase.js").then(m=>m.start());</script>
 <script>/* qrcode-generator 1.4.4 (MIT, Kazuhiko Arase) */
 //---------------------------------------------------------------------
 //
@@ -2717,7 +2717,7 @@ function results(){
 /* ---- data layer ---- */
 const strip=o=>{const c={...o};delete c.id;return c};
 async function put(coll,id,obj){
- if(H.db){await H.db.doc(coll+"/"+id).set(obj);return}
+ if(H.db){await H.db.doc(coll+"/"+id).set(obj);if(H.scoped&&coll==="orders")await H.db.doc("orderPub/"+id).set(pubOf(obj));return}
  if(coll==="settings"){ST.delivery=obj;return}
  const arr=ST[coll==="products"?"tp":coll];const o={...obj,id};const i=arr.findIndex(x=>x.id===id);
  if(i>=0)arr[i]=o;else arr.push(o);
@@ -2734,6 +2734,7 @@ async function remove(coll,id){
 }
 function subscribe(){
  if(!H.db){S.ready=true;refresh();return}
+ if(H.scoped&&!S.canAdmin){subscribeScoped();return}
  const err=e=>{S.err=(e&&e.code)||"error";refresh()};
  H.db.collection("products").onSnapshot(s=>{ST.tp=s.docs.map(d=>({...d.data(),id:d.id}));mergeP();S.ready=true;refresh()},err);
  H.db.collection("shops").onSnapshot(s=>{ST.shops=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},err);
@@ -2749,7 +2750,39 @@ function subscribe(){
  if(S.canAdmin)H.db.collection("shopPrivate").onSnapshot(s=>{s.docs.forEach(d=>{PRIV[d.id]=d.data()});refresh()},()=>{});
  H.db.collection("shopOff").onSnapshot(s=>{ST.shopOff=s.docs.map(d=>({...d.data(),id:d.id}));syncOff();refresh()},err);
 }
-async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
+/* Firebase, for everyone but the team: the security rules only let a person read their own orders, cases and
+   money, plus the orders of a shop they own. Results from several queries are merged into ST.orders / ST.locks.
+   Stock is counted from orderPub, a copy of each order without names, phones or addresses. */
+const SRC={o:{},l:{}},SHOPW={};
+function mergeSrc(){const o={},l={};Object.values(SRC.o).forEach(m=>Object.assign(o,m));Object.values(SRC.l).forEach(m=>Object.assign(l,m));ST.orders=Object.values(o);ST.locks=l}
+function watchInto(kind,key,q){q.onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=kind==="o"?{...d.data(),id:d.id}:d.data()});SRC[kind][key]=m;mergeSrc();refresh()},()=>{})}
+const ownShop=s=>!!s&&((!!s.ownerUid&&s.ownerUid===H.uid)||(!!S.user&&!!s.phone&&pn(s.phone)===pn(S.user.phone)));
+function watchMyShops(){
+ if(!H.scoped||S.canAdmin||!H.db)return;
+ for(const s of ST.shops){if(SHOPW[s.id]||!ownShop(s))continue;SHOPW[s.id]=1;
+  watchInto("o","s"+s.id,H.db.collection("orders").where("shopId","==",s.id));
+  watchInto("l","s"+s.id,H.db.collection("orderLock").where("shopId","==",s.id))}
+}
+function subscribeScoped(){
+ const err=e=>{S.err=(e&&e.code)||"error";refresh()},uid=H.uid;
+ H.db.collection("products").onSnapshot(s=>{ST.tp=s.docs.map(d=>({...d.data(),id:d.id}));mergeP();S.ready=true;refresh()},err);
+ H.db.collection("shops").onSnapshot(s=>{ST.shops=s.docs.map(d=>({...d.data(),id:d.id}));watchMyShops();refresh()},err);
+ H.db.doc("settings/delivery").onSnapshot(s=>{ST.delivery=s.exists?s.data():null;refresh(true)},err);
+ H.db.doc("settings/rules").onSnapshot(s=>{ST.rules=s.exists?s.data():null;refresh()},err);
+ H.db.doc("settings/pay").onSnapshot(s=>{ST.pay=s.exists?s.data():null;refresh()},err);
+ H.db.collection("shopProducts").onSnapshot(s=>{ST.shopProducts=s.docs.map(d=>({...d.data(),id:d.id}));mergeP();refresh()},()=>{});
+ H.db.collection("shopOff").onSnapshot(s=>{ST.shopOff=s.docs.map(d=>({...d.data(),id:d.id}));syncOff();refresh()},err);
+ H.db.collection("orderPub").onSnapshot(s=>{ST.pub=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},()=>{});
+ if(!uid)return;
+ watchInto("o","me",H.db.collection("orders").where("uid","==",uid));
+ watchInto("l","me",H.db.collection("orderLock").where("uid","==",uid));
+ H.db.collection("cases").where("uid","==",uid).onSnapshot(s=>{ST.cases=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},()=>{});
+ H.db.doc("sellerApps/"+uid).onSnapshot(s=>{ST.sellerApps=s.exists?[{...s.data(),id:uid}]:[];refresh()},()=>{});
+ H.db.doc("sellerDecision/"+uid).onSnapshot(s=>{ST.sellerDec=s.exists?{[uid]:s.data()}:{};refresh()},()=>{});
+}
+/* what stock needs from an order — no personal data (see firestore.rules: orderPub) */
+const pubOf=o=>{const d={pid:o.pid,vlabel:o.vlabel||"",qty:+o.qty||1,status:o.status,createdAt:o.createdAt||null,shopId:o.shopId||""};if(o.shopAt!=null)d.shopAt=o.shopAt;return d};
+async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;if(b&&b.scoped)H.scoped=true;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
 function pic(p,i){
  const id=imgsOf(p)[i];
@@ -3145,7 +3178,7 @@ async function saSend(){
  if(need.length)throw new Error(T.saNeed(need));
  if(!D.agree)throw new Error(T.saNeedAgree);
  const id=saIdOf(S.user.phone),now=Date.now();
- const app={phone:S.user.phone,type:D.type,name:D.name.trim(),shopName:D.type==="shop"?D.shopName.trim():"",prov:D.prov,district:D.district.trim(),village:D.village.trim(),sells:String(D.sells||"").trim(),
+ const app={uid:H.uid||"",phone:S.user.phone,type:D.type,name:D.name.trim(),shopName:D.type==="shop"?D.shopName.trim():"",prov:D.prov,district:D.district.trim(),village:D.village.trim(),sells:String(D.sells||"").trim(),
   item:{name:String(I.name).trim(),cat:catVal(I.cat),price,qty,weight:kg,cond:I.cond==="used"?"used":"new",desc:I.cond==="used"?String(I.desc||"").trim():"",imgs:I.imgs},agreedAt:now,createdAt:(a&&a.createdAt)||now,updatedAt:now,rounds:((a&&a.rounds)||0)+1};
  const k={};if(D.idImg)k.idImg=D.idImg;if(D.selfie)k.selfie=D.selfie;if(D.bank.trim())k.bank=D.bank.trim();if(D.account.trim())k.account=D.account.trim();if(D.accName.trim())k.accName=D.accName.trim();
  if(H.db){
@@ -3194,7 +3227,7 @@ async function saDecide(id,status){
  if(status==="approved"){
   if(ST.shops.some(x=>x.phone&&pn(x.phone)===pn(a.phone)))throw new Error(T.saDup(""));
   const k=kycOf(id)||{},sid=newId("s");
-  const shop={name:a.type==="shop"&&a.shopName?a.shopName:a.name,type:a.type==="shop"?"shop":"person",phone:a.phone,addr:[a.village,a.district].filter(Boolean).join(", "),map:"",prov:a.prov,pickup:a.prov===CAP?(F.pickup||"team"):"self",agreed:true,demo:false,verified:true,verifiedAt:now,sellerApp:id,updatedAt:now};
+  const shop={ownerUid:a.uid||"",name:a.type==="shop"&&a.shopName?a.shopName:a.name,type:a.type==="shop"?"shop":"person",phone:a.phone,addr:[a.village,a.district].filter(Boolean).join(", "),map:"",prov:a.prov,pickup:a.prov===CAP?(F.pickup||"team"):"self",agreed:true,demo:false,verified:true,verifiedAt:now,sellerApp:id,updatedAt:now};
   await put("shops",sid,shop);
   if(H.db)await H.db.doc("shopPrivate/"+sid).set({bank:k.bank||"",account:k.account||"",accName:k.accName||""});else PRIV[sid]={bank:k.bank||"",account:k.account||"",accName:k.accName||""};
   dec.shopId=sid;
@@ -3277,6 +3310,7 @@ async function saveFees(){
 /* ---- live refresh ---- */
 function refresh(feesChanged){
  if(!$("#app"))return;
+ if(H.scoped)watchMyShops();
  const k=viewKey(),ae=document.activeElement;
  if(!$("#app .app")){render();return}
  if(k==="home"){updateFeed();const n=$("#notes");if(n)n.innerHTML=notes();return}
@@ -3461,7 +3495,7 @@ Object.assign(T,{
  csOut:{store:"ຮ້ານຮັບຜິດຊອບ · ຄືນເງິນລູກຄ້າ · ຮ້ານບໍ່ໄດ້ເງິນອໍເດີນີ້",us:"Sunsoul ຮັບຜິດຊອບ · ຄືນເງິນລູກຄ້າ",none:"ປິດເຄສ · ບໍ່ຮັບຄືນ"},
  backBtn:"ກັບຄືນ",slipWord:"ສະລິບ"
 });
-Object.assign(ST,{orders:[],cases:[],shopOff:[],rules:null,locks:{},sellerApps:[],sellerDec:{},kyc:{}});
+Object.assign(ST,{orders:[],cases:[],shopOff:[],rules:null,locks:{},sellerApps:[],sellerDec:{},kyc:{},pub:[]});
 const RULES0={shopReplyMin:120,payMin:30,fixHours:24,returnDays:3,holdNewDays:7,carrierDays:5,maxPerRun:10};
 const RUL=()=>({...RULES0,...(ST.rules||{})});
 const DAY=86400000;
@@ -3494,7 +3528,7 @@ const rnd4=()=>{const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let r="";for(let i=0;
 const nextNo0=()=>{const n=ST.orders.map(o=>parseInt(String(o.no||"").replace(/\D/g,""),10)||0);return Math.max(1000,...n)+1};
 /* an order reserves stock as soon as it is placed; declined / cancelled orders give it back */
 const HOLD=new Set(["await_shop","await_pay","await_verify","await_pickup","shipping","delivered"]);
-const held=(p,v)=>{const base=p.stockAt||p.createdAt||0;return ST.orders.filter(o=>o.pid===p.id&&o.vlabel===v.label&&HOLD.has(o.status)&&(o.shopAt||o.createdAt||0)>=base).reduce((a,o)=>a+(+o.qty||1),0)};
+const held=(p,v)=>{const base=p.stockAt||p.createdAt||0;return (H.scoped&&!S.canAdmin?ST.pub:ST.orders).filter(o=>o.pid===p.id&&o.vlabel===v.label&&HOLD.has(o.status)&&(o.shopAt||o.createdAt||0)>=base).reduce((a,o)=>a+(+o.qty||1),0)};
 /* gallery for the chosen option: its own photo first, then the product photos */
 const vimgs=(p,v)=>{const a=imgsOf(p);return v&&v.img?[v.img,...a.filter(x=>x!==v.img)]:a};
 const stockRaw=(p,v)=>(+v.stock||0)-held(p,v);
@@ -3533,7 +3567,7 @@ const okPay=o=>{const l=LK(o);return !!l&&(l.pay==="cod"?!!l.codAt:!!l.verifiedA
 const isCod=o=>{const l=LK(o);return l?l.pay==="cod":o.pay==="cod"};
 const curPrice=o=>{const p=byId(ST.products,o.pid),v=p&&vars(p).find(x=>x.label===o.vlabel);return v?+v.price:+o.price};
 async function lockOrder(o,patch){
- const doc={...(LK(o)||{}),...patch,at:Date.now()};
+ const doc={...(LK(o)||{}),...patch,uid:o.uid||"",shopId:o.shopId||"",at:Date.now()};
  if(H.db){await H.db.doc("orderLock/"+o.id).set(doc);return}
  ST.locks[o.id]=doc;setTimeout(()=>refresh(),0);
 }
@@ -3803,7 +3837,7 @@ const placeOrder=guard(async()=>{
  const now=Date.now(),R=RUL(),gid=L.length>1?newId("g"):"",ll=parseLL(C.map),kind=guessKind(C.addr);let first="";
  for(const [i,l] of L.entries()){
   const id=newId("o");if(!first)first=id;const door=pMode(l.p)==="door";
-  await put("orders",id,{no:"SS-"+nextNo(),gid,pid:l.p.id,pname:l.p.name,vlabel:l.v.label,qty:l.qty,price:+l.v.price,kg:kgNum(l.p.weight),img:l.v.img||imgsOf(l.p)[0]||"",
+  await put("orders",id,{uid:H.uid||"",no:"SS-"+nextNo(),gid,pid:l.p.id,pname:l.p.name,vlabel:l.v.label,qty:l.qty,price:+l.v.price,kg:kgNum(l.p.weight),img:l.v.img||imgsOf(l.p)[0]||"",
    shopId:l.p.shopId||"",shopName:l.p.shopName||"",cat:l.p.cat||"",cust:{name:C.name.trim(),phone:C.phone.trim()},addr:door?String(C.addr||"").trim():branchText(C),map:door?String(C.map||"").trim():"",
    branch:door?null:{name:String(C.branch||"").trim(),phone:String(C.brPhone||"").trim(),village:String(C.village||"").trim(),district:String(C.district||"").trim(),prov:C.prov||""},
    acct:S.user?S.user.phone:"",refImg:(S.coRef[l.p.id]||{}).img||"",refNote:String((S.coRef[l.p.id]||{}).note||"").trim(),
@@ -4009,7 +4043,7 @@ const rtSend=guard(async()=>{
  const id=newId("c"),no=nextCase(),now=Date.now(),kid=saIdOf(S.user&&S.user.phone);
  const acct={rbank:R.rbank.trim(),racct:R.racct.trim(),rname:R.rname.trim(),rat:now};
  if(H.db){await H.db.doc("kyc/"+kid).update(acct).catch(()=>H.db.doc("kyc/"+kid).set(acct))}else ST.kyc[kid]={...(ST.kyc[kid]||{}),...acct};
- await put("cases",id,{no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",owner:"",createdAt:now});
+ await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",owner:"",createdAt:now});
  await setOrder(o,{caseId:id},"customer");
  S.screen="home";S.tab="orders";toast(T.rtGot+" · "+no);render();
 });
@@ -4661,7 +4695,7 @@ function mainHtml3(k){
   case "return":return returnHtml();
   case "orders":return ordersListHtml();
   case "order":return orderDetailHtml(byId(ST.orders,S.oid));
-  case "account":return S.pol?policyHtml():S.sell?sellHtml():accountHtml();
+  case "account":return S.pol?policyHtml():S.sell?sellHtml():accountHtml()+(H.scoped&&H.uid?`<p class="psub" style="font-size:11px;text-align:center;margin:8px 0;user-select:all">ID: ${esc(H.uid)}</p>`:"");
   case "t-sellers":return tSellersHtml();
   case "t-seller":return tSellerHtml();
   case "s-orders":return sOrdersHtml();

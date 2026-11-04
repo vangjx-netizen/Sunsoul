@@ -7,7 +7,8 @@ function makeFakeFirebase(seed) {
   const segs = p => p.split("/").filter(Boolean);
   const children = path => [...docs.keys()].filter(k => k.startsWith(path + "/") && segs(k).length === segs(path).length + 1);
   const docSnap = path => ({ id: segs(path).pop(), exists: () => docs.has(path), data: () => clone(docs.get(path)) });
-  const collSnap = path => ({ docs: children(path).map(k => ({ id: segs(k).pop(), data: () => clone(docs.get(k)) })) });
+  const match = (d, w) => w.op === "==" ? d[w.f] === w.v : w.op === "in" ? w.v.includes(d[w.f]) : true;
+  const collSnap = (path, ws) => ({ docs: children(path).filter(k => (ws || []).every(w => match(docs.get(k), w))).map(k => ({ id: segs(k).pop(), data: () => clone(docs.get(k)) })) });
   const fire = () => listeners.forEach(l => l());
   const auth = { user: null, subs: new Set(), anonCount: 0 };
   const fb = {
@@ -18,6 +19,8 @@ function makeFakeFirebase(seed) {
     getStorage: () => ({ files: new Map() }),
     doc: (fs, path) => ({ path }),
     collection: (fs, path) => ({ path, coll: true }),
+    where: (f, op, v) => ({ f, op, v }),
+    query: (c, ...ws) => ({ ...c, ws }),
     getDoc: async ref => docSnap(ref.path),
     setDoc: async (ref, data) => { fb.writes.push(["set", ref.path]); docs.set(ref.path, clone(data)); fire(); },
     updateDoc: async (ref, data) => {
@@ -26,7 +29,7 @@ function makeFakeFirebase(seed) {
     },
     deleteDoc: async ref => { fb.writes.push(["delete", ref.path]); docs.delete(ref.path); fire(); },
     onSnapshot: (ref, cb) => {
-      const l = () => cb(ref.coll ? collSnap(ref.path) : docSnap(ref.path));
+      const l = () => cb(ref.coll ? collSnap(ref.path, ref.ws) : docSnap(ref.path));
       listeners.add(l); setTimeout(l, 0); return () => listeners.delete(l);
     },
     onAuthStateChanged: (a, cb) => { a.subs.add(cb); setTimeout(() => cb(a.user), 0); return () => a.subs.delete(cb); },

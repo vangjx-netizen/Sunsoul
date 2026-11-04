@@ -17,6 +17,7 @@ export function makeBackend(fb, config) {
   const fs = fb.getFirestore(app);
   const auth = fb.getAuth(app);
   const storage = fb.getStorage ? fb.getStorage(app) : null;
+  if (fb.useEmulators) fb.useEmulators(fs, auth, storage);   // local testing only
 
   // Every visitor gets an account (anonymous at first). Phone sign-in later links to the same account,
   // so the uid, profile and orders stay with the person.
@@ -37,9 +38,15 @@ export function makeBackend(fb, config) {
       onSnapshot: (cb, err) => fb.onSnapshot(ref, s => cb(snapOfDoc(s)), err),
     };
   };
-  const collApi = path => ({
+  // where() narrows what is loaded: on Firebase each person reads only what the rules let them see
+  const collApi = (path, filters = []) => ({
     doc: id => docApi(path + "/" + id),
-    onSnapshot: (cb, err) => fb.onSnapshot(fb.collection(fs, path), s => cb(snapOfColl(s)), err),
+    where: (field, op, value) => collApi(path, [...filters, [field, op, value]]),
+    onSnapshot: (cb, err) => {
+      const base = fb.collection(fs, path);
+      const q = filters.length ? fb.query(base, ...filters.map(f => fb.where(...f))) : base;
+      return fb.onSnapshot(q, s => cb(snapOfColl(s)), err);
+    },
   });
   const db = { collection: collApi, doc: docApi };
 
@@ -71,6 +78,8 @@ export function makeBackend(fb, config) {
   return {
     ready,
     blobUrl,
+    // tells the page to load only the viewer's own data (Claude lets everyone read everything)
+    scoped: true,
     // Same contract as claude.use(): the namespace, or null when this viewer cannot use it.
     use: async name => {
       await ready;
