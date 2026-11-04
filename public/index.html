@@ -263,6 +263,8 @@ dialog#lb[open]{display:flex;flex-direction:column;gap:10px}
 <div id="toast" role="status" hidden></div>
 <input type="file" id="s3file" accept="image/*" hidden>
 <dialog id="lb"></dialog>
+<script>/* Backend: Claude Artifact runtime by default; Firebase when served from Firebase Hosting (see backend-core.js) */
+if(/(\.web\.app|\.firebaseapp\.com)$/.test(location.hostname))window.SUNSOUL_BACKEND=import("./backend-firebase.js").then(m=>m.start());</script>
 <script>/* qrcode-generator 1.4.4 (MIT, Kazuhiko Arase) */
 //---------------------------------------------------------------------
 //
@@ -2747,7 +2749,7 @@ function subscribe(){
  if(S.canAdmin)H.db.collection("shopPrivate").onSnapshot(s=>{s.docs.forEach(d=>{PRIV[d.id]=d.data()});refresh()},()=>{});
  H.db.collection("shopOff").onSnapshot(s=>{ST.shopOff=s.docs.map(d=>({...d.data(),id:d.id}));syncOff();refresh()},err);
 }
-async function use(n){try{return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
+async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
 function pic(p,i){
  const id=imgsOf(p)[i];
@@ -3582,7 +3584,8 @@ const UPL=new Set();
 S.kchk=S.kchk||{};S.saf=S.saf||{};
 /* Some phones (iPhone Safari) cannot load "/_blob/" files inside the artifact frame.
    Every asset therefore has a small JPEG copy in db "imgm/<id>"; when a /_blob image fails, the copy is shown instead. */
-const MIR={},MIRL=new Set(),URLMAP={};let BLOBBAD=false,DIAG=false;
+const MIR={},MIRL=new Set(),URLMAP={};
+const blobUrl=id=>H.blobUrl?H.blobUrl(id):"/_blob/"+id;let BLOBBAD=false,DIAG=false;
 function loadMirror(id){
  if(MIRL.has(id)||!H.db)return;MIRL.add(id);
  H.db.doc("imgm/"+id).get().then(s=>{const d=s.exists&&s.data();if(d&&d.d){MIR[id]=d.d;document.querySelectorAll('img').forEach(i=>{const a=i.getAttribute("src")||"";if(a.includes(id)&&!a.startsWith("data:"))i.src=d.d})}}).catch(()=>{});
@@ -3610,14 +3613,14 @@ async function backfillMirrors(){
  const ids=new Set();for(const p of ST.products||[]){(p.imgs||[]).forEach(x=>ids.add(String(x)));(p.variants||[]).forEach(v=>v&&v.img&&ids.add(String(v.img)))}
  for(const id of ids){if(!/^[0-9a-f]{32}$/.test(id)||MIR[id]||MCHK.has(id))continue;MCHK.add(id);
   try{const s=await H.db.doc("imgm/"+id).get();if(s.exists)continue;
-   const u=URLMAP[id]||"/_blob/"+id;
+   const u=URLMAP[id]||blobUrl(id);
    try{const r=await fetch(u,{credentials:"include"});if(r.ok){await mirrorFrom(await r.blob(),id);continue}}catch(e){}
    const im=new Image();await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=u});await mirrorFrom(im,id)}catch(e){}}
 }
 setInterval(backfillMirrors,15000);
 function imgSrc(id){
  id=String(id||"");
- if(!id.startsWith("u:")){if(MIR[id])return esc(MIR[id]);if(BLOBBAD)loadMirror(id);return esc(URLMAP[id]||"/_blob/"+id)}
+ if(!id.startsWith("u:")){if(MIR[id])return esc(MIR[id]);if(BLOBBAD)loadMirror(id);return esc(URLMAP[id]||blobUrl(id))}
  const k=id.slice(2),d=ST.up[k];
  if(d)return esc(d.data||"");
  if(H.db&&!UPL.has(k)){UPL.add(k);H.db.doc("upimgs/"+k).get().then(s=>{if(s.exists){ST.up[k]=s.data();refresh()}}).catch(()=>{})}
