@@ -86,6 +86,28 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   const buyerLock = await buyer.evaluate(async () => { try { await H.db.doc('orderLock/o1').set({ total: 1, uid: H.uid }); return 'allowed'; } catch (e) { return e.code || e.message; } });
   ok(/permission/i.test(buyerLock), 'buyer: cannot change the amount (' + buyerLock + ')');
 
+  // moving data in: the team imports a file exported from the Claude version
+  const PX = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'px.png')).toString('base64');
+  const img = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const exportFile = path.join(require('os').tmpdir(), 'sunsoul-test-export.json');
+  fs.writeFileSync(exportFile, JSON.stringify({ kind: 'sunsoul-export', version: 1, collections: {
+    shops: { s9: { name: 'ຮ້ານນຳເຂົ້າ', prov: 'ນະຄອນຫຼວງວຽງຈັນ', pickup: 'team', phoneE164: '+8562000000009' } },
+    shopPrivate: { s9: { bank: 'BCEL', account: '0101' } },
+    products: { p9: { name: 'ສິນຄ້ານຳເຂົ້າ', cat: 'home', shopId: 's9', shopName: 'ຮ້ານນຳເຂົ້າ', variants: [{ label: '—', price: 90000, stock: 4 }], imgs: [img], active: true, createdAt: 1, stockAt: 1 } },
+    imgm: { [img]: { d: PX } },
+    orders: { sneaky: { uid: 'x', status: 'delivered' } },
+  } }));
+  await team0.evaluate(() => { S.tab = 'team'; S.sub = 'fees'; render(); });
+  ok((await team0.textContent('main')).includes('ນຳເຂົ້າຂໍ້ມູນ'), 'team: import section on the settings page');
+  const [fc] = await Promise.all([team0.waitForEvent('filechooser'), team0.click('[data-x="impfile"]')]);
+  await fc.setFiles(exportFile);
+  ok(await until(() => team0.evaluate(() => !!S.imp && S.imp.done === S.imp.total && S.imp.total === 4)), 'team: imports shops, bank, product and photo (orders in the file are ignored)');
+  ok(!(await admin(async d => (await getDoc(doc(d, 'orders/sneaky'))).exists())), 'import never writes orders');
+  ok(await until(() => stranger.evaluate(() => !!byId(ST.products, 'p9'))), 'stranger: sees the imported product live');
+  await stranger.evaluate(() => { S.tab = 'home'; S.screen = 'home'; render(); });
+  ok(await until(() => stranger.evaluate(() => [...document.querySelectorAll('img')].some(i => (i.getAttribute('src') || '').startsWith('data:image/png')))), 'stranger: product photo shows from its copy (no Storage needed)');
+  ok(/permission/i.test(await stranger.evaluate(async () => { try { await H.db.doc('shopPrivate/s9').get(); return 'read it'; } catch (e) { return e.code || e.message; } })), 'stranger: cannot read the imported bank account');
+
   await browser.close(); await env.cleanup(); server.close();
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

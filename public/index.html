@@ -2782,7 +2782,7 @@ function subscribeScoped(){
 }
 /* what stock needs from an order — no personal data (see firestore.rules: orderPub) */
 const pubOf=o=>{const d={pid:o.pid,vlabel:o.vlabel||"",qty:+o.qty||1,status:o.status,createdAt:o.createdAt||null,shopId:o.shopId||""};if(o.shopAt!=null)d.shopAt=o.shopAt;return d};
-async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;if(b&&b.scoped)H.scoped=true;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
+async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;if(b&&b.scoped)H.scoped=true;if(b&&b.noStorage)BLOBBAD=true;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
 function pic(p,i){
  const id=imgsOf(p)[i];
@@ -3273,11 +3273,32 @@ async function paySave(){
  if(H.db)await H.db.doc("settings/pay").set(doc);else ST.pay=doc;
  ST.pay=doc;S.payDraft=null;render(true);toast(T.saved);
 }
+/* ---- moving to Firebase: the team imports a file exported from the Claude version ---- */
+/* photos first and products last, so nobody sees a product before its photo exists */
+const IMPORT_OK=["imgm","upimgs","settings","shops","shopPrivate","shopOff","shopProducts","products"];
+function importHtml(){
+ if(!H.scoped||!S.canAdmin)return "";
+ const I=S.imp;
+ return `<h2 class="sec">${T.imT}</h2><section class="card"><span class="psub" style="font-size:13px">${T.imS}</span>
+ ${I?`<div class="note"${I.done<I.total?"":` style="background:var(--green-bg);color:var(--green)"`}><b>${I.done<I.total?T.imBusy(I.done,I.total):T.imDone(I.done-I.err,I.total)}</b>${I.err?`<br>${T.imErr(I.err)}`:""}${I.counts?`<br><small>${Object.entries(I.counts).map(([c,n])=>esc(c)+" "+n).join(" · ")}</small>`:""}</div>`:""}
+ <button class="sbtn" data-x="impfile" ${I&&I.done<I.total?"disabled":""}>📂 ${T.imPick}</button></section>`;
+}
+function pickJsonFile(){return new Promise(res=>{const i=document.createElement("input");i.type="file";i.accept=".json,application/json";i.onchange=()=>res(i.files[0]||null);i.click()})}
+async function importData(){
+ const f=await pickJsonFile();if(!f)return;
+ let d;try{d=JSON.parse(await f.text())}catch(e){throw new Error(T.imBad)}
+ if(!d||d.kind!=="sunsoul-export"||!d.collections)throw new Error(T.imBad);
+ const jobs=[],counts={};
+ for(const c of IMPORT_OK){const docs=d.collections[c];if(!docs)continue;for(const [id,v] of Object.entries(docs)){jobs.push([c,id,v]);counts[c]=(counts[c]||0)+1}}
+ S.imp={done:0,total:jobs.length,err:0,counts};rr();
+ for(const [c,id,v] of jobs){try{await H.db.doc(c+"/"+id).set(v)}catch(e){S.imp.err++}S.imp.done++;if(S.imp.done%5===0||S.imp.done===S.imp.total)rr()}
+ toast(T.imDone(S.imp.done-S.imp.err,S.imp.total));
+}
 function feesHtml(){
  const d=DEL(),ts=d.updatedAt?new Date(d.updatedAt):null;
  const two=n=>String(n).padStart(2,"0");
  const pv=[1,d.baseKm,d.baseKm+1,10,d.farKm,d.farKm+10].filter((v,i,a)=>v>0&&a.indexOf(v)===i).sort((x,y)=>x-y);
- return `${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
+ return `${importHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
  <div class="zc"><span class="zn" style="background:var(--green-bg)">₭</span><div class="zt"><b>${T.fBase}</b><span>${T.fBaseKm(d)}</span></div>
  <label><input data-fbase inputmode="numeric" aria-label="${T.fBase}" value="${fmt(d.baseFee)}">${T.kip}</label></div>
  <div class="zc"><span class="zn" style="background:var(--green-bg)">≤</span><div class="zt"><b>${T.fBaseKmL}</b><span>${T.fBaseKm(d)}</span></div>
@@ -3622,7 +3643,7 @@ const MIR={},MIRL=new Set(),URLMAP={};
 const blobUrl=id=>H.blobUrl?H.blobUrl(id):"/_blob/"+id;let BLOBBAD=false,DIAG=false;
 function loadMirror(id){
  if(MIRL.has(id)||!H.db)return;MIRL.add(id);
- H.db.doc("imgm/"+id).get().then(s=>{const d=s.exists&&s.data();if(d&&d.d){MIR[id]=d.d;document.querySelectorAll('img').forEach(i=>{const a=i.getAttribute("src")||"";if(a.includes(id)&&!a.startsWith("data:"))i.src=d.d})}}).catch(()=>{});
+ H.db.doc("imgm/"+id).get().then(s=>{const d=s.exists&&s.data();if(!(d&&d.d)){setTimeout(()=>MIRL.delete(id),30000);return}if(d&&d.d){MIR[id]=d.d;document.querySelectorAll('img').forEach(i=>{const a=i.getAttribute("src")||"";if(a.includes(id)&&!a.startsWith("data:"))i.src=d.d})}}).catch(()=>{});
 }
 async function mirrorFrom(src,id){
  try{const bmp=src instanceof Blob?await createImageBitmap(src):src,w0=bmp.naturalWidth||bmp.width,h0=bmp.naturalHeight||bmp.height;if(!w0)return;
@@ -4778,6 +4799,7 @@ app.addEventListener("click",e=>{
   case "copyacct":{const a=(ST.pay||{}).acct||"";try{navigator.clipboard.writeText(a).then(()=>toast(T.copied),()=>toast(a))}catch(e){toast(a)}break}
   case "payqrup":guard(payQrUpload)();break;
   case "paysave":guard(paySave)();break;
+  case "impfile":guard(importData)();break;
   case "casego":{const L=myOrders().filter(caseNew);S.tab="orders";S.oid=L.length===1?L[0].id:null;if(L.length===1)markSeen(L[0].id);render();window.scrollTo(0,0);break}
   case "appeal":S.appeal=id;rr();break;
   case "appealgo":caseAppeal(id);break;
@@ -5061,6 +5083,8 @@ Object.assign(T,{saTitle:"ສະໝັກເປັນຜູ້ຂາຍ",saIntro
  saRejT:"ບໍ່ຜ່ານ · ເລືອກເຫດຜົນ",saReject:"ບໍ່ອະນຸມັດ",saNoteL:"ຂໍ້ຄວາມເຖິງຜູ້ສະໝັກ",saNotePh:"ເຊັ່ນ: ຮູບບັດມົວ ກະລຸນາຖ່າຍໃໝ່ໃນທີ່ແຈ້ງ",
  saNeedNote:"ຂຽນຂໍ້ຄວາມເຖິງຜູ້ສະໝັກກ່ອນ",saNeedReason:"ເລືອກເຫດຜົນທີ່ບໍ່ຜ່ານ",
  saDecided:{approved:"ອະນຸມັດແລ້ວ · ຮ້ານ ແລະ ສິນຄ້າຂຶ້ນເວັບແລ້ວ",needinfo:"ແຈ້ງຂໍຂໍ້ມູນເພີ່ມແລ້ວ",rejected:"ແຈ້ງຜົນແລ້ວ"}});
+Object.assign(T,{imT:"ນຳເຂົ້າຂໍ້ມູນ (ຍ້າຍລະບົບ)",imS:"ເລືອກໄຟລ໌ທີ່ສົ່ງອອກຈາກລະບົບເກົ່າ · ສິນຄ້າ ຮ້ານ ແລະ ການຕັ້ງຄ່າ ຈະຖືກຂຽນເຂົ້າຖານຂໍ້ມູນນີ້ (ຂຽນທັບອັນທີ່ມີ ID ດຽວກັນ)",
+ imPick:"ເລືອກໄຟລ໌ .json",imBad:"ໄຟລ໌ນີ້ບໍ່ແມ່ນໄຟລ໌ຂໍ້ມູນ Sunsoul",imBusy:(a,b)=>"ກຳລັງນຳເຂົ້າ "+a+" / "+b+" ...",imDone:(a,b)=>"✓ ນຳເຂົ້າແລ້ວ "+a+" / "+b,imErr:n=>n+" ລາຍການບໍ່ສຳເລັດ"});
 Object.assign(T,{qrAmtNote:"ສະແກນແລ້ວ ຍອດເງິນຂຶ້ນໃຫ້ອັດຕະໂນມັດ",qrPlainNote:t=>"QR ບໍ່ມີຍອດ · ພິມຍອດ "+fmt(t)+" ກີບ ເອງ",
  qrUsePlain:"ແອັບສະແກນບໍ່ໄດ້? ໃຊ້ QR ແບບບໍ່ມີຍອດ",qrUseAmt:"ກັບໄປໃຊ້ QR ມີຍອດ",qrSave:"ຈ່າຍຈາກມືຖືເຄື່ອງນີ້: ກົດຄ້າງທີ່ QR → ບັນທຶກຮູບ → ເປີດແອັບທະນາຄານ → ສະແກນຈາກຮູບ",
  payName:"ຊື່ບັນຊີ",payBank:"ທະນາຄານ",payAcct:"ເລກບັນຊີ",copy:"ສຳເນົາ",copied:"ສຳເນົາແລ້ວ",

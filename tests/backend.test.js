@@ -4,7 +4,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
 const { pathToFileURL } = require('url');
 const { makeFakeFirebase } = require('./fake-firebase.js');
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
-const CONFIG = { projectId: 'sunsoul-01', storageBucket: 'sunsoul-01.firebasestorage.app' };
+const CONFIG = { projectId: 'sunsoul-01', storageBucket: 'sunsoul-01.firebasestorage.app', useStorage: true };
 const corePath = path.join(__dirname, '..', 'public', 'backend-core.js');
 
 (async () => {

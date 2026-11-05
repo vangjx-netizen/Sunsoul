@@ -16,7 +16,8 @@ export function makeBackend(fb, config) {
   const app = fb.initializeApp(config);
   const fs = fb.getFirestore(app);
   const auth = fb.getAuth(app);
-  const storage = fb.getStorage ? fb.getStorage(app) : null;
+  // Storage needs the paid (Blaze) plan on new projects; until config.useStorage is set, photos go to Firestore.
+  const storage = config.useStorage && fb.getStorage ? fb.getStorage(app) : null;
   if (fb.useEmulators) fb.useEmulators(fs, auth, storage);   // local testing only
 
   // Every visitor gets an account (anonymous at first). Phone sign-in later links to the same account,
@@ -80,12 +81,13 @@ export function makeBackend(fb, config) {
     blobUrl,
     // tells the page to load only the viewer's own data (Claude lets everyone read everything)
     scoped: true,
+    noStorage: !storage,
     // Same contract as claude.use(): the namespace, or null when this viewer cannot use it.
     use: async name => {
       await ready;
       if (name === "db") return db;
       if (name === "user") return user;
-      if (name === "assets") return (await isAdmin()) ? assets : null;
+      if (name === "assets") return storage && (await isAdmin()) ? assets : null;
       return null;
     },
   };
