@@ -3052,13 +3052,14 @@ async function saveProduct(pub){
 /* ---- team: sellers ---- */
 function shopsHtml(){
  return `<button class="cta" data-act="news">${T.addShop}</button>`+(ST.shops.length?ST.shops.map(s=>`<div class="arow" style="grid-template-columns:1fr"><div class="am"><b>${esc(s.name)}</b>${isVer(s)?vBadge(s):` <span class="chip a" style="font-size:11px">${T.vbNotYet}</span>`} <span class="shop">${s.type==="person"?T.sPerson:T.sShop}</span>
- <div class="shop">${esc(s.phone||"")} ${esc(s.addr||"")}</div><div class="shop">${shopLocal(s)?"🚚 "+T.doorShort:"📦 "+esc(shopProv(s))+" · "+T.shopShort}</div><div class="shop" style="color:${parseLL(s.map)?"var(--green)":"var(--bad)"}">${parseLL(s.map)?"✓ "+T.llOk:"⚠ "+T.llNo}</div></div>
+ <div class="shop">${esc(s.phone||"")} ${esc(s.addr||"")}${H.scoped?(s.ownerUid?` · <span style="color:var(--green)">🔗 ${T.ownOk}</span>`:` · ${T.ownNo}`):""}</div><div class="shop">${shopLocal(s)?"🚚 "+T.doorShort:"📦 "+esc(shopProv(s))+" · "+T.shopShort}</div><div class="shop" style="color:${parseLL(s.map)?"var(--green)":"var(--bad)"}">${parseLL(s.map)?"✓ "+T.llOk:"⚠ "+T.llNo}</div></div>
  <div class="aa"><button class="sbtn" data-act="edits" data-id="${esc(s.id)}">${T.edit}</button><button class="sbtn danger" data-act="dels" data-id="${esc(s.id)}">${S.confirm===s.id?T.delSure:T.del}</button></div></div>`).join(""):`<div class="empty">${T.noItems}</div>`);
 }
 function shopFormHtml(){
  const D=S.sdraft,shop=D.type==="shop";
  return `<div class="seg"><button data-sseg="shop" aria-pressed="${shop}" style="height:44px;font-size:15px">${T.sShop}</button><button data-sseg="person" aria-pressed="${!shop}" style="height:44px;font-size:15px">${T.sPerson}</button></div>
  <label class="fld">${shop?T.sNameShop:T.sNamePerson}<input data-sf="name" value="${esc(D.name)}"></label>
+ ${H.scoped?`<label class="fld">${T.ownT}<input data-sf="ownerUid" value="${esc(D.ownerUid||"")}" placeholder="${T.ownPh}" autocomplete="off" spellcheck="false" style="font-family:var(--fn)"><small>${T.ownS}</small></label>`:""}
  <label class="fld">${T.sPhone}<input data-sf="phone" type="tel" placeholder="020 xxxx xxxx" value="${esc(D.phone)}" style="font-family:var(--fn)"></label>
  <label class="fld">${T.sAddr}<input data-sf="addr" value="${esc(D.addr)}"></label>
  <label class="fld">${T.sProv}<select data-sf="prov">${PROVS.map(v=>`<option ${shopProv(D)===v?"selected":""}>${v}</option>`).join("")}</select><small>${T.sProvHint}</small></label>
@@ -3073,7 +3074,7 @@ function shopFormHtml(){
 async function saveShop(){
  const D=S.sdraft;if(!D.name.trim()){$("#serr").textContent=T.errName;return}
  const id=D.id||newId("s"),name=D.name.trim(),old=ST.shops.find(s=>s.id===id)||{};
- const doc={...strip(old),name,type:D.type,phone:D.phone.trim(),addr:D.addr.trim(),map:String(D.map||"").trim(),prov:shopProv(D),pickup:shopProv(D)===CAP?D.pickup:"self",agreed:true,demo:false,updatedAt:Date.now()};
+ const doc={...strip(old),ownerUid:String(D.ownerUid==null?old.ownerUid||"":D.ownerUid).replace(/^\s*ID:\s*/i,"").trim(),name,type:D.type,phone:D.phone.trim(),addr:D.addr.trim(),map:String(D.map||"").trim(),prov:shopProv(D),pickup:shopProv(D)===CAP?D.pickup:"self",agreed:true,demo:false,updatedAt:Date.now()};
  doc.verified=!!D.verified;if(doc.verified&&!old.verified)doc.verifiedAt=Date.now();if(!doc.verified)delete doc.verifiedAt;
  delete doc.bank;delete doc.account;
  try{
@@ -3384,7 +3385,7 @@ app.addEventListener("click",async e=>{
   if(S.confirm!==id){S.confirm=id;render();return}
   S.confirm="";try{await remove(pcoll(byId(ST.products,id)),id);render()}catch(err){toast((err&&err.message)||"error")}}
  else if(a==="news"){S.sdraft={id:"",name:"",type:"shop",prov:CAP,phone:"",map:"",addr:"",pickup:"team",bank:"",account:"",agreed:false};render()}
- else if(a==="edits"){const s=ST.shops.find(x=>x.id===id);if(s){S.sdraft={id:s.id,name:s.name||"",type:s.type||"shop",prov:shopProv(s),phone:s.phone||"",map:s.map||"",addr:s.addr||"",pickup:s.pickup||"team",bank:PV(s).bank,account:PV(s).account,agreed:!!s.agreed,verified:!!s.verified};render()}}
+ else if(a==="edits"){const s=ST.shops.find(x=>x.id===id);if(s){S.sdraft={ownerUid:s.ownerUid||"",id:s.id,name:s.name||"",type:s.type||"shop",prov:shopProv(s),phone:s.phone||"",map:s.map||"",addr:s.addr||"",pickup:s.pickup||"team",bank:PV(s).bank,account:PV(s).account,agreed:!!s.agreed,verified:!!s.verified};render()}}
  else if(a==="cancels"){S.sdraft=null;render()}
  else if(a==="saves"){saveShop()}
  else if(a==="dels"){
@@ -4071,7 +4072,7 @@ const rtSend=guard(async()=>{
 
 /* ---- customer: account ---- */
 function accountHtml(){
- const u=S.user,L=myOrders(),shop=u&&ST.shops.find(s=>s.phone&&pn(s.phone)===pn(u.phone));
+ const u=S.user,L=myOrders(),shop=ST.shops.find(s=>(H.scoped&&!!H.uid&&s.ownerUid===H.uid)||(!!u&&!!s.phone&&pn(s.phone)===pn(u.phone)));
  const arrow=ic("chev",18,2.2).replace("<svg",'<svg style="transform:rotate(-90deg)"');
  const addrs=S.addrs;
  return (u?`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="display:flex;flex-direction:column"><b style="font-size:18px">${esc(u.name||T.accName)}</b><span class="psub" style="font-family:var(--fn)">${esc(u.phone)}</span></div></div></div>
@@ -5083,6 +5084,8 @@ Object.assign(T,{saTitle:"ສະໝັກເປັນຜູ້ຂາຍ",saIntro
  saRejT:"ບໍ່ຜ່ານ · ເລືອກເຫດຜົນ",saReject:"ບໍ່ອະນຸມັດ",saNoteL:"ຂໍ້ຄວາມເຖິງຜູ້ສະໝັກ",saNotePh:"ເຊັ່ນ: ຮູບບັດມົວ ກະລຸນາຖ່າຍໃໝ່ໃນທີ່ແຈ້ງ",
  saNeedNote:"ຂຽນຂໍ້ຄວາມເຖິງຜູ້ສະໝັກກ່ອນ",saNeedReason:"ເລືອກເຫດຜົນທີ່ບໍ່ຜ່ານ",
  saDecided:{approved:"ອະນຸມັດແລ້ວ · ຮ້ານ ແລະ ສິນຄ້າຂຶ້ນເວັບແລ້ວ",needinfo:"ແຈ້ງຂໍຂໍ້ມູນເພີ່ມແລ້ວ",rejected:"ແຈ້ງຜົນແລ້ວ"}});
+Object.assign(T,{ownT:"ລະຫັດບັນຊີເຈົ້າຂອງຮ້ານ (ID)",ownPh:"ວາງ ID ທີ່ເຈົ້າຂອງຮ້ານສົ່ງມາ",
+ ownS:"ເຈົ້າຂອງຮ້ານເປີດເວັບ → ແຖບ ບັນຊີ → ສົ່ງ ID ລຸ່ມສຸດມາ · ຜູກແລ້ວ ບັນຊີນັ້ນຈະເຫັນ ແລະ ຕອບອໍເດີຂອງຮ້ານນີ້ໄດ້",ownOk:"ຜູກບັນຊີແລ້ວ",ownNo:"ຍັງບໍ່ຜູກບັນຊີ"});
 Object.assign(T,{imT:"ນຳເຂົ້າຂໍ້ມູນ (ຍ້າຍລະບົບ)",imS:"ເລືອກໄຟລ໌ທີ່ສົ່ງອອກຈາກລະບົບເກົ່າ · ສິນຄ້າ ຮ້ານ ແລະ ການຕັ້ງຄ່າ ຈະຖືກຂຽນເຂົ້າຖານຂໍ້ມູນນີ້ (ຂຽນທັບອັນທີ່ມີ ID ດຽວກັນ)",
  imPick:"ເລືອກໄຟລ໌ .json",imBad:"ໄຟລ໌ນີ້ບໍ່ແມ່ນໄຟລ໌ຂໍ້ມູນ Sunsoul",imBusy:(a,b)=>"ກຳລັງນຳເຂົ້າ "+a+" / "+b+" ...",imDone:(a,b)=>"✓ ນຳເຂົ້າແລ້ວ "+a+" / "+b,imErr:n=>n+" ລາຍການບໍ່ສຳເລັດ"});
 Object.assign(T,{qrAmtNote:"ສະແກນແລ້ວ ຍອດເງິນຂຶ້ນໃຫ້ອັດຕະໂນມັດ",qrPlainNote:t=>"QR ບໍ່ມີຍອດ · ພິມຍອດ "+fmt(t)+" ກີບ ເອງ",

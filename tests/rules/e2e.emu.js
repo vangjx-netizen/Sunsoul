@@ -108,6 +108,20 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   ok(await until(() => stranger.evaluate(() => [...document.querySelectorAll('img')].some(i => (i.getAttribute('src') || '').startsWith('data:image/png')))), 'stranger: product photo shows from its copy (no Storage needed)');
   ok(/permission/i.test(await stranger.evaluate(async () => { try { await H.db.doc('shopPrivate/s9').get(); return 'read it'; } catch (e) { return e.code || e.message; } })), 'stranger: cannot read the imported bank account');
 
+  // the team links an imported shop to its owner's account through the shop form
+  const ownerUid = await stranger.evaluate(() => H.uid);
+  await team0.evaluate(() => { S.tab = 'team'; S.sub = 'shops'; S.sdraft = null; render(); });
+  ok((await team0.textContent('main')).includes('ຍັງບໍ່ຜູກບັນຊີ'), 'team: shop list shows which shops are not linked yet');
+  await team0.click('[data-act="edits"][data-id="s9"]');
+  await team0.fill('[data-sf="ownerUid"]', 'ID: ' + ownerUid);
+  if (!(await team0.isChecked('[data-agree]'))) await team0.check('[data-agree]');
+  await team0.click('[data-act="saves"]');
+  ok(await until(async () => (await admin(async d => (await getDoc(doc(d, 'shops/s9'))).data().ownerUid)) === ownerUid), 'team: pasted ID (with the "ID:" prefix) is saved on the shop');
+  await stranger.evaluate(() => { S.tab = 'account'; S.sell = false; S.pol = false; render(); });
+  ok(await until(async () => (await stranger.textContent('main')).includes('ໜ້າຮ້ານຄ້າ')), 'owner: account page now shows “my shop”');
+  await buyer.evaluate(async () => { await put('orders', 'o9', { uid: H.uid, no: 'SS-9', pid: 'p9', pname: 'ສິນຄ້ານຳເຂົ້າ', vlabel: '—', qty: 1, price: 90000, shopId: 's9', shopName: 'ຮ້ານນຳເຂົ້າ', status: 'await_shop', acct: '2098798512', cust: { name: 'Noy', phone: '2098798512' }, createdAt: Date.now(), history: [] }); });
+  ok(await until(() => stranger.evaluate(() => ST.orders.some(o => o.id === 'o9'))), 'owner: receives the new order for the linked shop');
+
   await browser.close(); await env.cleanup(); server.close();
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
