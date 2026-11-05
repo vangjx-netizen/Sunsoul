@@ -1,6 +1,7 @@
 # Publishes the site and the Firestore security rules to Firebase (project sunsoul-01)
 # every time main changes, using the key stored in the repository secret FIREBASE_SERVICE_ACCOUNT.
-# Until that secret exists, the job only prints a note and succeeds.
+# The page code is checked first: if an edit broke it, nothing is deployed and the live site keeps
+# the last working version (the run shows a red ✗ with the line that is wrong).
 name: Deploy to Firebase
 
 on:
@@ -10,6 +11,7 @@ on:
       - "public/**"
       - "firestore.rules"
       - "firebase.json"
+      - "tools/check_page.js"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
@@ -23,17 +25,18 @@ jobs:
     env:
       HAS_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the page code (stops the deploy if an edit broke it)
+        run: node tools/check_page.js
+
       - name: No key yet
         if: env.HAS_KEY != 'true'
         run: echo "FIREBASE_SERVICE_ACCOUNT is not set yet, so nothing was deployed."
-
-      - uses: actions/checkout@v4
-        if: env.HAS_KEY == 'true'
-
-      - uses: actions/setup-node@v4
-        if: env.HAS_KEY == 'true'
-        with:
-          node-version: 20
 
       - name: Deploy site and Firestore rules
         if: env.HAS_KEY == 'true'
