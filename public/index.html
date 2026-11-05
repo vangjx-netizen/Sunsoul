@@ -3062,7 +3062,7 @@ function shopFormHtml(){
  return `<div class="seg"><button data-sseg="shop" aria-pressed="${shop}" style="height:44px;font-size:15px">${T.sShop}</button><button data-sseg="person" aria-pressed="${!shop}" style="height:44px;font-size:15px">${T.sPerson}</button></div>
  <label class="fld">${shop?T.sNameShop:T.sNamePerson}<input data-sf="name" value="${esc(D.name)}"></label>
  ${H.scoped?`<label class="fld">${T.ownT}<input data-sf="ownerUid" value="${esc(D.ownerUid||"")}" placeholder="${T.ownPh}" autocomplete="off" spellcheck="false" style="font-family:var(--fn)"><small>${T.ownS}</small></label>`:""}
- <label class="fld">${T.sPhone}<input data-sf="phone" type="tel" placeholder="020 xxxx xxxx" value="${esc(D.phone)}" style="font-family:var(--fn)"></label>
+ <label class="fld">${H.scoped?T.sPhoneFb:T.sPhone}<input data-sf="phone" type="tel" placeholder="020 xxxx xxxx" value="${esc(D.phone)}" style="font-family:var(--fn)"></label>
  <label class="fld">${T.sAddr}<input data-sf="addr" value="${esc(D.addr)}"></label>
  <label class="fld">${T.sProv}<select data-sf="prov">${PROVS.map(v=>`<option ${shopProv(D)===v?"selected":""}>${v}</option>`).join("")}</select><small>${T.sProvHint}</small></label>
  <label class="fld">${T.sMap}<input data-sf="map" value="${esc(D.map)}" placeholder="${T.sMapPh}" autocomplete="off"></label>
@@ -3820,7 +3820,20 @@ function lgOk(){
  S.user={phone:S.lg.phone.trim(),name:(old&&old.cust.name)||""};LS.set("ss_user",JSON.stringify(S.user));saveProfile();
  const to=S.after||"home";S.after=null;
  if(to==="checkout")return startOrder();
+ /* a shop owner who signs in with the shop's number goes straight to the shop page.
+    On Firebase the number alone proves nothing yet (no SMS code), so the account must also be linked to the shop;
+    if it is not, the account page says which shop the number belongs to and how to get linked. */
+ const byPhone=ST.shops.find(x=>!!x.phone&&pn(x.phone)===pn(S.user.phone));
+ if(byPhone&&(!H.scoped||(!!H.uid&&byPhone.ownerUid===H.uid))){S.shopHint=null;S.shopId=byPhone.id;S.tab="store";S.ss="orders";render();window.scrollTo(0,0);return}
+ if(byPhone&&H.scoped){S.shopHint=byPhone.id;S.tab="account";S.screen="home";render();window.scrollTo(0,0);return}
  S.tab=to==="account"?"account":"home";S.screen="home";render();
+}
+function shopHintHtml(){
+ const s=S.shopHint&&byId(ST.shops,S.shopHint);
+ if(!s||!S.user||pn(s.phone)!==pn(S.user.phone)||(H.uid&&s.ownerUid===H.uid))return "";
+ const u=contactUrl(T.ctLinkShop(s.name,H.uid));
+ return `<section class="card" style="border:2px solid var(--accent)"><b>🏪 ${T.shHintT(esc(s.name))}</b><span class="psub" style="font-size:13px">${T.shHintS}</span>
+ <div class="aa">${u?`<a ${lnkBtn} href="${esc(u)}">💬 ${T.ctSendId}</a>`:""}<button class="sbtn" data-x="copyid">📋 ${T.ctCopy}</button></div></section>`;
 }
 function startOrder(){
  S.tab="home";
@@ -4748,7 +4761,7 @@ function mainHtml3(k){
   case "return":return returnHtml();
   case "orders":return ordersListHtml();
   case "order":return orderDetailHtml(byId(ST.orders,S.oid));
-  case "account":return S.pol?policyHtml():S.sell?sellHtml():accountHtml()+contactCard()+idCard();
+  case "account":return S.pol?policyHtml():S.sell?sellHtml():shopHintHtml()+accountHtml()+contactCard()+idCard();
   case "t-sellers":return tSellersHtml();
   case "t-seller":return tSellerHtml();
   case "s-orders":return sOrdersHtml();
@@ -5118,6 +5131,8 @@ Object.assign(T,{saTitle:"ສະໝັກເປັນຜູ້ຂາຍ",saIntro
  saRejT:"ບໍ່ຜ່ານ · ເລືອກເຫດຜົນ",saReject:"ບໍ່ອະນຸມັດ",saNoteL:"ຂໍ້ຄວາມເຖິງຜູ້ສະໝັກ",saNotePh:"ເຊັ່ນ: ຮູບບັດມົວ ກະລຸນາຖ່າຍໃໝ່ໃນທີ່ແຈ້ງ",
  saNeedNote:"ຂຽນຂໍ້ຄວາມເຖິງຜູ້ສະໝັກກ່ອນ",saNeedReason:"ເລືອກເຫດຜົນທີ່ບໍ່ຜ່ານ",
  saDecided:{approved:"ອະນຸມັດແລ້ວ · ຮ້ານ ແລະ ສິນຄ້າຂຶ້ນເວັບແລ້ວ",needinfo:"ແຈ້ງຂໍຂໍ້ມູນເພີ່ມແລ້ວ",rejected:"ແຈ້ງຜົນແລ້ວ"}});
+Object.assign(T,{shHintT:n=>"ເບີນີ້ເປັນເບີຂອງ "+n,shHintS:"ເພື່ອເປີດໜ້າຮ້ານໃນເຄື່ອງນີ້ ສົ່ງ ID ໃຫ້ທີມ Sunsoul ຜູກບັນຊີກ່ອນ (ເຮັດຄັ້ງດຽວ) · ຈາກນັ້ນເຂົ້າສູ່ລະບົບດ້ວຍເບີນີ້ ຈະເຂົ້າໜ້າຮ້ານທັນທີ",
+ ctLinkShop:(n,id)=>"ສະບາຍດີ Sunsoul · ຂໍຜູກບັນຊີນີ້ກັບຮ້ານ "+n+" · ID: "+id,sPhoneFb:"ເບີໂທຮ້ານ (ເຈົ້າຂອງທີ່ຜູກ ID ແລ້ວ ເຂົ້າສູ່ລະບົບດ້ວຍເບີນີ້ ຈະເຂົ້າໜ້າຮ້ານທັນທີ)"});
 Object.assign(T,{ctT:"ຕິດຕໍ່ທີມ Sunsoul",ctS:"ມີຄຳຖາມ ຫຼື ບັນຫາ ທັກຫາທີມໄດ້ເລີຍ",ctHello:"ສະບາຍດີ Sunsoul ",
  ctLink:id=>"ສະບາຍດີ Sunsoul · ຂໍຜູກບັນຊີນີ້ກັບຮ້ານຂອງຂ້ອຍ · ຊື່ຮ້ານ: ... · ID: "+id,ctCopy:"ຄັດລອກ ID",ctSendId:"ສົ່ງ ID ໃຫ້ທີມ",ctNone:"ທີມຍັງບໍ່ໄດ້ຕັ້ງເບີຕິດຕໍ່",
  ccT:"ຊ່ອງທາງຕິດຕໍ່ທີມ (ລູກຄ້າ ແລະ ຮ້ານ ເຫັນ)",ccWa:"ເບີ WhatsApp ຂອງທີມ",ccPhone:"ເບີໂທ (ບໍ່ບັງຄັບ)",ccSave:"ບັນທຶກຊ່ອງທາງຕິດຕໍ່",
