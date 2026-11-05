@@ -63,6 +63,11 @@ const corePath = path.join(__dirname, '..', 'public', 'backend-core.js');
   ok(await p.evaluate(() => !ST.orders.some(o => o.id === 'x1')), 'someone else’s order is not loaded');
   ok(await p.evaluate(() => { const d = window.__fb._docs.get('orderPub/o9'); return !!d && d.qty === 2 && d.pid === 'p1' && !d.cust && !d.uid; }), 'order writes its stock copy without personal data');
   ok(await p.evaluate(() => stockLeft(byId(ST.products, 'p1'), vars(byId(ST.products, 'p1'))[0]) === 1), 'stock left counts from the copies (3 − 2 = 1)');
+  // a typed phone number that matches a shop is not enough on Firebase: only a linked account sees the shop button
+  await p.evaluate(() => { window.__fb._docs.set('shops/s1', { ...window.__fb._docs.get('shops/s1'), phone: '020 5555 7777' }); S.user = { phone: '020 5555 7777', name: 'Fake' }; ST.shops = ST.shops.map(x => x.id === 's1' ? { ...x, phone: '020 5555 7777' } : x); S.tab = 'account'; render(); });
+  ok(!(await p.textContent('main')).includes('ໜ້າຮ້ານຄ້າ'), 'typing a shop’s phone number does not show the shop button');
+  await p.evaluate(() => { ST.shops = ST.shops.map(x => x.id === 's1' ? { ...x, ownerUid: H.uid } : x); render(); });
+  ok((await p.textContent('main')).includes('ໜ້າຮ້ານຄ້າ'), 'once linked to this account, the shop button shows');
   await b.close();
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })();

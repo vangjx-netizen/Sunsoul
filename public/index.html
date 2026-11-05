@@ -2757,7 +2757,7 @@ function subscribe(){
 const SRC={o:{},l:{}},SHOPW={};
 function mergeSrc(){const o={},l={};Object.values(SRC.o).forEach(m=>Object.assign(o,m));Object.values(SRC.l).forEach(m=>Object.assign(l,m));ST.orders=Object.values(o);ST.locks=l}
 function watchInto(kind,key,q){q.onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=kind==="o"?{...d.data(),id:d.id}:d.data()});SRC[kind][key]=m;mergeSrc();refresh()},()=>{})}
-const ownShop=s=>!!s&&((!!s.ownerUid&&s.ownerUid===H.uid)||(!!S.user&&!!s.phone&&pn(s.phone)===pn(S.user.phone)));
+const ownShop=s=>!!s&&!!s.ownerUid&&s.ownerUid===H.uid;
 function watchMyShops(){
  if(!H.scoped||S.canAdmin||!H.db)return;
  for(const s of ST.shops){if(SHOPW[s.id]||!ownShop(s))continue;SHOPW[s.id]=1;
@@ -4103,7 +4103,7 @@ const rtSend=guard(async()=>{
 
 /* ---- customer: account ---- */
 function accountHtml(){
- const u=S.user,L=myOrders(),shop=ST.shops.find(s=>(H.scoped&&!!H.uid&&s.ownerUid===H.uid)||(!!u&&!!s.phone&&pn(s.phone)===pn(u.phone)));
+ const u=S.user,L=myOrders(),shop=ST.shops.find(s=>H.scoped?(!!H.uid&&s.ownerUid===H.uid):(!!u&&!!s.phone&&pn(s.phone)===pn(u.phone)));
  const arrow=ic("chev",18,2.2).replace("<svg",'<svg style="transform:rotate(-90deg)"');
  const addrs=S.addrs;
  return (u?`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="display:flex;flex-direction:column"><b style="font-size:18px">${esc(u.name||T.accName)}</b><span class="psub" style="font-family:var(--fn)">${esc(u.phone)}</span></div></div></div>
