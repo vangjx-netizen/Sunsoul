@@ -4453,7 +4453,7 @@ function tVerifyHtml(){
  ${olds.length?`<div><span class="psub" style="font-size:12px">${T.vOld}</span><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">${olds.map(x=>`<div style="text-align:center;font-size:11px">${thumb(x.id)}<br>${x.amt?fmt(x.amt):"0"} · ${esc(T.sjR[x.r]||"")}</div>`).join("")}</div></div>`:""}
  ${!G.every(hasDue)?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.noLock}</div>`:gotB===0&&ot!==tot?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.lockDiff(ot,tot)}</div>`:""}
  ${!L&&G.length===1&&autoKm(o)?`<div class="psub" style="font-size:13px">${T.vDist}: ${autoKm(o)} ${T.kmShort} · ${T.fee} ${fmt(autoFee(o))} ${T.kip}</div>`:""}
- <fieldset class="fs"><legend>${T.vLegend}</legend>${T.vChecks(tot).map((l,i)=>`<label class="ck"><input type="checkbox" data-xc="vchk" data-id="${esc(o.id)}" data-i="${i}" ${ch[i]?"checked":""}><span>${l}</span></label>`).join("")}</fieldset>
+ <fieldset class="fs"><legend>${T.vLegend}</legend><button class="sbtn" data-x="vall" data-id="${esc(o.id)}" style="align-self:flex-start;${all?"":"border-color:var(--green);color:var(--green)"}">${all?"↺ "+T.vAllClear:"☑ "+T.vAll}</button>${T.vChecks(tot).map((l,i)=>`<label class="ck"><input type="checkbox" data-xc="vchk" data-id="${esc(o.id)}" data-i="${i}" ${ch[i]?"checked":""}><span>${l}</span></label>`).join("")}</fieldset>
  <div style="display:flex;flex-direction:column;gap:8px"><button class="cta" style="background:${all?"var(--green)":"var(--off)"}" data-x="vok" data-id="${esc(o.id)}" ${all?"":"disabled"}>${all?T.vOk:T.vProg(n)}</button>${S.vrej===o.id?vRejForm(o,tot):`<button class="sbtn danger" data-x="vbad" data-id="${esc(o.id)}">${T.vBad}</button>`}</div>
  <p class="psub" style="font-size:12px;margin:0">${T.vManual}</p><div class="psub" style="text-align:center">${T.vQueue(S.vq+1,Q.length)}</div>${tOwedHtml()}`;
 }
@@ -4921,6 +4921,7 @@ app.addEventListener("click",e=>{
    if(!fee||fee<0){toast(f.kind==="local"?T.kmLbl:T.feeAmt);break}
    confirmFee(o,f,fee);break}
   case "vok":vApprove(id);break;
+  case "vall":{const a=S.chk[id]||[0,0,0,0],full=a.every(Boolean);S.chk[id]=full?[0,0,0,0]:[1,1,1,1];rr();break}
   case "vbad":S.vrej=id;S.vr={r:"",amt:"",note:""};rr();break;
   case "vbadx":S.vrej=null;rr();break;
   case "vbadgo":vReject(id,S.vr&&S.vr.r,S.vr&&S.vr.amt,S.vr&&S.vr.note);break;
@@ -5131,6 +5132,7 @@ Object.assign(T,{saTitle:"ສະໝັກເປັນຜູ້ຂາຍ",saIntro
  saRejT:"ບໍ່ຜ່ານ · ເລືອກເຫດຜົນ",saReject:"ບໍ່ອະນຸມັດ",saNoteL:"ຂໍ້ຄວາມເຖິງຜູ້ສະໝັກ",saNotePh:"ເຊັ່ນ: ຮູບບັດມົວ ກະລຸນາຖ່າຍໃໝ່ໃນທີ່ແຈ້ງ",
  saNeedNote:"ຂຽນຂໍ້ຄວາມເຖິງຜູ້ສະໝັກກ່ອນ",saNeedReason:"ເລືອກເຫດຜົນທີ່ບໍ່ຜ່ານ",
  saDecided:{approved:"ອະນຸມັດແລ້ວ · ຮ້ານ ແລະ ສິນຄ້າຂຶ້ນເວັບແລ້ວ",needinfo:"ແຈ້ງຂໍຂໍ້ມູນເພີ່ມແລ້ວ",rejected:"ແຈ້ງຜົນແລ້ວ"}});
+Object.assign(T,{vAll:"ທຸກຂໍ້ຖືກຕ້ອງ (ຕິກທັງ 4 ຂໍ້)",vAllClear:"ລ້າງ"});
 Object.assign(T,{shHintT:n=>"ເບີນີ້ເປັນເບີຂອງ "+n,shHintS:"ເພື່ອເປີດໜ້າຮ້ານໃນເຄື່ອງນີ້ ສົ່ງ ID ໃຫ້ທີມ Sunsoul ຜູກບັນຊີກ່ອນ (ເຮັດຄັ້ງດຽວ) · ຈາກນັ້ນເຂົ້າສູ່ລະບົບດ້ວຍເບີນີ້ ຈະເຂົ້າໜ້າຮ້ານທັນທີ",
  ctLinkShop:(n,id)=>"ສະບາຍດີ Sunsoul · ຂໍຜູກບັນຊີນີ້ກັບຮ້ານ "+n+" · ID: "+id,sPhoneFb:"ເບີໂທຮ້ານ (ເຈົ້າຂອງທີ່ຜູກ ID ແລ້ວ ເຂົ້າສູ່ລະບົບດ້ວຍເບີນີ້ ຈະເຂົ້າໜ້າຮ້ານທັນທີ)"});
 Object.assign(T,{ctT:"ຕິດຕໍ່ທີມ Sunsoul",ctS:"ມີຄຳຖາມ ຫຼື ບັນຫາ ທັກຫາທີມໄດ້ເລີຍ",ctHello:"ສະບາຍດີ Sunsoul ",
