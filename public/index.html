@@ -2880,8 +2880,8 @@ function homeHtml(){
  ${S.user&&payPending().some(o=>!o.slipRejected)?`<button class="arow2" data-x="paygo" style="width:100%;text-align:left;border:2px solid var(--accent);font-size:15px"><span>💳 <b>${T.payHome(payPending().filter(o=>!o.slipRejected).length)}</b></span><span style="color:var(--accent);font-weight:700">${T.payBtnShort} ›</span></button>`:""}
  ${S.user&&rcvPending().length?`<button class="arow2" data-x="rcvgo" style="width:100%;text-align:left;border:2px solid var(--green);font-size:15px"><span>📦 <b>${T.rcvHome(rcvPending().length)}</b></span><span style="color:var(--green);font-weight:700">${T.rcvBtnShort} ›</span></button>`:""}
  <div class="trust">${[["check",T.tr1],["ret",T.tr2],["truck",T.tr3]].map(([i,l])=>`<div>${ic(i,20,2.2)}<span>${l}</span></div>`).join("")}</div>
- <h2 class="sec">${T.catsTitle}</h2>
- <div class="cats">${CATS.map(c=>`<button class="cat" data-cat="${c[0]}"><i style="--t:${c[3]};--c:${c[4]}">${ic(c[2],24,2)}</i>${c[1]}</button>`).join("")}</div>
+ <button class="arow2" data-x="catstog" aria-expanded="${!!S.catsOpen}" style="width:100%;text-align:left;font-size:15px;font-weight:700"><span>☰ ${T.catsTitle}</span><span style="color:var(--muted)">${S.catsOpen?"▴":"▾"}</span></button>
+ ${S.catsOpen?`<div class="cats">${CATS.map(c=>`<button class="cat" data-cat="${c[0]}"><i style="--t:${c[3]};--c:${c[4]}">${ic(c[2],24,2)}</i>${c[1]}</button>`).join("")}</div>`:""}
  <div id="notes" style="display:contents">${notes()}</div>
  <div class="feedh"><h2 class="sec">${T.feedTitle}</h2><span>${T.noShip}</span></div>
  <div id="feed">${feedHtml()}</div>`;
@@ -4850,6 +4850,7 @@ app.addEventListener("click",e=>{
   case "appealgo":caseAppeal(id);break;
   case "slippick":slipPick(id);break;
   case "slipsend":slipUp(id);break;
+  case "catstog":S.catsOpen=!S.catsOpen;render(true);break;
   case "help":{const u=contactUrl(T.ctHello);if(u)window.open(u,"_blank","noopener");else toast(T.ctNone);break}
   case "copyid":{const v=H.uid||"";try{navigator.clipboard.writeText(v).then(()=>toast(T.copied),()=>toast(v))}catch(e){toast(v)}break}
   case "ctsave":guard(contactSave)();break;

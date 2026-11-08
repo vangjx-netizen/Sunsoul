@@ -163,7 +163,9 @@ async function pickPhoto(p, selector) {
   ok(await p.evaluate(() => [catKey({cat:'ເສື້ອ'}),catKey({cat:'ພາບ'}),catKey({cat:'shoes'}),catKey({cat:'',name:'ພັດລົມຕັ້ງໂຕະ'}),catKey({cat:'xyz'})].join()) === 'clothes,home,shoes,appliance,other', 'old free-text categories map onto the fixed list');
   await p.evaluate(() => { S.tab = 'home'; S.screen = 'home'; S.budget = 0; S.name = ''; S.cat = ''; render(); });
   const hm = await p.textContent('main');
-  ok(hm.includes('ຊື້ຕາມງົບ') && hm.includes('ຄືນສິນຄ້າໄດ້') && (await p.$$('.cat')).length === 8 && (await p.$$('[data-qb]')).length === 4, 'home has logo+tagline, trust strip, 8 category tiles, 4 quick budgets');
+  ok(hm.includes('ຊື້ຕາມງົບ') && hm.includes('ຄືນສິນຄ້າໄດ້') && (await p.$$('.cat')).length === 0 && (await p.$$('[data-qb]')).length === 4, 'home has logo+tagline, trust strip, categories folded away, 4 quick budgets');
+  await p.click('[data-x="catstog"]'); await p.waitForTimeout(80);
+  ok((await p.$$('.cat')).length === 8, 'tapping “categories” shows the 8 category tiles');
   await p.click('[data-cat="other"]'); await wait(p);
   ok(await p.evaluate(() => S.screen === 'results' && S.cat === 'other' && results().list.every(r => catKey(r.p) === 'other') && results().list.some(r => r.p.name === 'Hat')), 'tapping a category shows only that category');
   await p.click('[data-cat=""]'); await wait(p);
