@@ -6,7 +6,7 @@ const core = fs.readFileSync(path.join(__dirname, '..', 'public', 'backend-core.
 const fake = fs.readFileSync(path.join(__dirname, 'fake-firebase.js'), 'utf8');
 const CONFIG = { projectId: 'sunsoul-01', storageBucket: 'x' };
 const shop = (extra) => ({ name: 'ຮ້ານ1', phone: '020 0000 0001', prov: 'ນະຄອນຫຼວງວຽງຈັນ', pickup: 'team', ...extra });
-const login = p => p.evaluate(() => { S.lg = { step: 'code', phone: '020 0000 0001', code: '123456', err: '' }; lgOk(); });
+const login = p => p.evaluate(() => { S.lg = { step: 'code', phone: '020 0000 0001', code: '123456', err: '', name: 'Owner' }; lgOk(); });
 
 (async () => {
   const b = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
@@ -34,7 +34,7 @@ const login = p => p.evaluate(() => { S.lg = { step: 'code', phone: '020 0000 00
 
   // Firebase, a normal customer number → home as before
   const cust = await firebasePage({ 'shops/s1': shop({ ownerUid: 'anon1' }) });
-  await cust.evaluate(() => { S.lg = { step: 'code', phone: '020 9879 8512', code: '123456', err: '' }; lgOk(); });
+  await cust.evaluate(() => { S.lg = { step: 'code', phone: '020 9879 8512', code: '123456', err: '', name: 'Noy' }; lgOk(); });
   ok(await cust.evaluate(() => S.tab === 'home'), 'customer number → home page as before');
 
   // Claude version (no account ids): the number is enough, as it always was there
