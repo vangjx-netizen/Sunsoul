@@ -11,7 +11,7 @@ ok((await p.$$('[data-x="refpick"]')).length===3,'checkout offers the 3 product 
 await p.click('[data-x="refpick"][data-rimg="u:d2"]');await p.waitForTimeout(80);
 ok(await p.getAttribute('[data-x="refpick"][data-rimg="u:d2"]','aria-pressed')==='true','tapped design is highlighted');
 await p.fill('[data-refnote]','ສີດຳ ລາຍທາງ');
-await p.fill('[data-co="addr"]','ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ');await p.fill('[data-co="map"]','17.9757, 102.6331');
+await p.evaluate(()=>{S.co.addr='ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ';S.co.map='17.9757, 102.6331';rr()});
 await p.click('[data-x="place"]');await p.waitForTimeout(250);
 let o=await p.evaluate(()=>ST.orders[0]);ok(o&&o.refImg==='u:d2'&&o.refNote==='ສີດຳ ລາຍທາງ','order carries the chosen design and note');
 // own screenshot

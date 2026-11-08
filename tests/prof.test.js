@@ -20,7 +20,7 @@ await p.fill('[data-lg="phone"]','20 5555 1234');await p.click('[data-x="lgsend"
 ok(await p.evaluate(()=>S.lg.step==='name'),'first sign-in asks the name once');
 await p.fill('[data-lg="name"]','ນ້ອຍ');await p.click('[data-x="lgname"]');await p.waitForTimeout(100);
 ok(await p.evaluate(()=>S.screen==='checkout'&&S.user.phone==='20 5555 1234'&&S.user.name==='ນ້ອຍ'),'OTP once → straight to checkout');
-await p.fill('[data-co="name"]','Vang');await p.fill('[data-co="addr"]','ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ');await p.fill('[data-co="map"]','17.9757, 102.6331');
+await p.fill('[data-co="name"]','Vang');await p.evaluate(()=>{S.co.addr='ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ';S.co.map='17.9757, 102.6331';rr()});
 await p.click('[data-x="place"]');await p.waitForTimeout(300);
 ok(!!store['data/users/u_customer1/profile']&&store['data/users/u_customer1/profile'].addrs.length===1,'profile with phone + address saved in the private db space');
 await p.evaluate(()=>localStorage.clear());await p.close();
@@ -34,7 +34,7 @@ ok(co.scr==='checkout'&&co.name==='Vang'&&co.addr.includes('ໂພນທັນ')
 const sum=await p.textContent('#cosum');console.log('COSUM:',sum.replace(/\s+/g,' '));ok(sum.includes('15,000'),'fee already calculated from the saved location');
 await p.screenshot({path:path.join(__dirname,'out','checkout-saved.png')});
 // a second address, then the account page lists both and can remove one
-await p.fill('[data-co="name"]','Mom');await p.fill('[data-co="phone"]','020 2222 3333');await p.fill('[data-co="addr"]','ບ້ານ ສີສັງວອນ, ນະຄອນຫຼວງ');await p.fill('[data-co="map"]','17.99, 102.63');
+await p.fill('[data-co="name"]','Mom');await p.fill('[data-co="phone"]','020 2222 3333');await p.evaluate(()=>{S.co.addr='ບ້ານ ສີສັງວອນ, ນະຄອນຫຼວງ';S.co.map='17.99000, 102.63000';rr()});
 await p.click('[data-x="place"]');await p.waitForTimeout(300);
 ok(store['data/users/u_customer1/profile'].addrs.length===2,'sending to someone else adds a second saved address');
 await p.evaluate(()=>{S.tab='account';render()});

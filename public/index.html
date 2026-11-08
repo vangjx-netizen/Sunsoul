@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{touch-action:manipulation;scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Sunsoul</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -147,6 +147,7 @@ dialog#lb[open]{display:flex;flex-direction:column;gap:10px}
 .lbimg.z img{max-width:none;max-height:none;width:220%;cursor:zoom-out}
 /* team forms */
 .fld{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600;min-width:0}
+@supports (-webkit-touch-callout:none){input,select,textarea{font-size:max(16px,1em)}}
 .fld input,.fld select,.fld textarea{height:48px;width:100%;padding:0 12px;border-radius:12px;border:1.5px solid var(--line2);background:var(--card);font-size:16px;font-weight:400}
 .fld textarea{height:auto;padding:10px 12px}
 .fld small{font-weight:400;color:var(--muted)}
@@ -2567,6 +2568,11 @@ var qrcode = function() {
 </script>
 <script>
 document.documentElement.lang="lo";
+/* app-like: no pinch / double-tap zoom, and no iOS zoom when a text box is focused */
+(()=>{const c="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover",m=document.querySelector('meta[name="viewport"]');
+ if(m)m.setAttribute("content",c);else{const n=document.createElement("meta");n.name="viewport";n.content=c;document.head.appendChild(n)}
+ ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+ document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});})();
 /* Lao interface text — kept in one place so a native speaker can review it. */
 const T={
  qPh:"ຄົ້ນຫາ",bLabel:"ງົບຂອງເຈົ້າ (ບໍ່ລວມຄ່າສົ່ງ)",bPh:"ງົບທີ່ຕ້ອງການ",budgetWord:"ງົບ",kip:"ກີບ",
@@ -2640,7 +2646,7 @@ const catInput=(attr,cur)=>`<input ${attr} list="catlist" value="${esc(catText(c
 const catSelect=(attr,cur)=>`<select ${attr}><option value="">${T.catPick}</option>${CATS.map(c=>`<option value="${c[0]}" ${cur===c[0]?"selected":""}>${c[1]}</option>`).join("")}</select>`;
 /* Owner's rule (Vientiane Capital, shop → customer by road): up to baseKm = baseFee flat; baseKm+1 … maxKm = perKm × km.
    Default: ≤5 km 15,000 · 6–15 km 3,000/km. Team carries items up to maxKg and not oversized; beyond maxKm → carrier / arranged. */
-const DEF_DEL={baseFee:15000,baseKm:5,perKm:3000,farKm:30,farPerKm:5000,maxKm:15,maxKg:10};
+const DEF_DEL={baseFee:15000,baseKm:5,perKm:3000,farKm:30,farPerKm:5000,maxKm:15,maxKg:10,zoneKm:40,zoneLL:"17.97080, 102.61860"};
 function feeKm(km){
  const d=DEL(),k=Math.ceil(Math.max(0,parseFloat(String(km).replace(",","."))||0));
  if(!k)return null;
@@ -2677,7 +2683,7 @@ function mergeP(){ST.products=[...ST.tp,...(ST.shopProducts||[]).filter(x=>x.sta
 const pcoll=p=>p&&p.src==="sp"?"shopProducts":"products";
 const pdoc=p=>{const c={...p};delete c.id;delete c.src;return c};
 const H={db:null,assets:null,user:null};
-const DEL=()=>{const d=ST.delivery;return d&&+d.perKm>0&&+d.baseFee>0?{baseFee:+d.baseFee,baseKm:+d.baseKm||DEF_DEL.baseKm,perKm:+d.perKm,maxKm:+d.maxKm||DEF_DEL.maxKm,farKm:+d.farKm||DEF_DEL.farKm,farPerKm:+d.farPerKm||DEF_DEL.farPerKm,maxKg:+d.maxKg||DEF_DEL.maxKg,updatedAt:d.updatedAt}:DEF_DEL};
+const DEL=()=>{const d=ST.delivery;return d&&+d.perKm>0&&+d.baseFee>0?{baseFee:+d.baseFee,baseKm:+d.baseKm||DEF_DEL.baseKm,perKm:+d.perKm,maxKm:+d.maxKm||DEF_DEL.maxKm,farKm:+d.farKm||DEF_DEL.farKm,farPerKm:+d.farPerKm||DEF_DEL.farPerKm,maxKg:+d.maxKg||DEF_DEL.maxKg,zoneKm:+d.zoneKm||DEF_DEL.zoneKm,zoneLL:d.zoneLL||DEF_DEL.zoneLL,updatedAt:d.updatedAt}:DEF_DEL};
 const kgNum=v=>{const n=parseFloat(String(v==null?"":v).replace(",","."));return isFinite(n)&&n>0?Math.round(n*100)/100:0};
 const vars=p=>Array.isArray(p.variants)?p.variants:[];
 const priced=p=>vars(p).filter(v=>+v.price>0);
@@ -2879,6 +2885,7 @@ function homeHtml(){
  ${S.user&&payPending().some(o=>o.slipRejected)?`<button class="arow2" data-x="paygo" style="width:100%;text-align:left;border:2px solid var(--bad);font-size:15px"><span>⚠ <b>${T.slipHome}</b></span><span style="color:var(--bad);font-weight:700">${T.unseenBtn} ›</span></button>`:""}
  ${S.user&&payPending().some(o=>!o.slipRejected)?`<button class="arow2" data-x="paygo" style="width:100%;text-align:left;border:2px solid var(--accent);font-size:15px"><span>💳 <b>${T.payHome(payPending().filter(o=>!o.slipRejected).length)}</b></span><span style="color:var(--accent);font-weight:700">${T.payBtnShort} ›</span></button>`:""}
  ${S.user&&rcvPending().length?`<button class="arow2" data-x="rcvgo" style="width:100%;text-align:left;border:2px solid var(--green);font-size:15px"><span>📦 <b>${T.rcvHome(rcvPending().length)}</b></span><span style="color:var(--green);font-weight:700">${T.rcvBtnShort} ›</span></button>`:""}
+ ${locBarHtml()}
  <div class="trust">${[["check",T.tr1],["ret",T.tr2],["truck",T.tr3]].map(([i,l])=>`<div>${ic(i,20,2.2)}<span>${l}</span></div>`).join("")}</div>
  <button class="arow2" data-x="catstog" aria-expanded="${!!S.catsOpen}" style="width:100%;text-align:left;font-size:15px;font-weight:700"><span>☰ ${T.catsTitle}</span><span style="color:var(--muted)">${S.catsOpen?"▴":"▾"}</span></button>
  ${S.catsOpen?`<div class="cats">${CATS.map(c=>`<button class="cat" data-cat="${c[0]}"><i style="--t:${c[3]};--c:${c[4]}">${ic(c[2],24,2)}</i>${c[1]}</button>`).join("")}</div>`:""}
@@ -3331,6 +3338,10 @@ function feesHtml(){
  const two=n=>String(n).padStart(2,"0");
  const pv=[1,d.baseKm,d.baseKm+1,10,d.farKm,d.farKm+10].filter((v,i,a)=>v>0&&a.indexOf(v)===i).sort((x,y)=>x-y);
  return `${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
+ <div class="zc"><span class="zn" style="background:var(--blue-bg)">◎</span><div class="zt"><b>${T.zT}</b><span>${T.zS}</span></div>
+ <label><input data-fzonekm inputmode="numeric" aria-label="${T.zT}" value="${d.zoneKm}">${T.kmShort}</label></div>
+ <label class="fld"><span>${T.zCenter} <small>${T.zCenterS}</small></span><input data-fzonell value="${esc(d.zoneLL)}" autocomplete="off" style="font-family:var(--fn)"></label>
+ <button type="button" class="sbtn" data-x="zonegeo" style="align-self:flex-start">📍 ${T.zHere}</button>
  <div class="zc"><span class="zn" style="background:var(--green-bg)">₭</span><div class="zt"><b>${T.fBase}</b><span>${T.fBaseKm(d)}</span></div>
  <label><input data-fbase inputmode="numeric" aria-label="${T.fBase}" value="${fmt(d.baseFee)}">${T.kip}</label></div>
  <div class="zc"><span class="zn" style="background:var(--green-bg)">≤</span><div class="zt"><b>${T.fBaseKmL}</b><span>${T.fBaseKm(d)}</span></div>
@@ -3357,7 +3368,10 @@ async function saveFees(){
  const perKm=(a&&num(a.value))||d.perKm,maxKg=(b&&kgNum(b.value))||d.maxKg;
  const baseFee=(g("[data-fbase]")&&num(g("[data-fbase]").value))||d.baseFee,baseKm=(g("[data-fbasekm]")&&num(g("[data-fbasekm]").value))||d.baseKm;
  const farKm=Math.max(baseKm,(g("[data-ffarkm]")&&num(g("[data-ffarkm]").value))||d.farKm),farPerKm=(g("[data-ffarper]")&&num(g("[data-ffarper]").value))||d.farPerKm;
- try{await put("settings","delivery",{baseFee,baseKm,perKm,farKm,farPerKm,maxKm:d.maxKm,maxKg,updatedAt:Date.now()});toast(T.saved);render()}catch(e){toast((e&&e.message)||"error")}
+  const zoneKm=(g("[data-fzonekm]")&&num(g("[data-fzonekm]").value))||d.zoneKm,zl=g("[data-fzonell]")?parseLL(g("[data-fzonell]").value):null;
+  if(g("[data-fzonell]")&&String(g("[data-fzonell]").value).trim()&&!zl){toast(T.zBadLL);return}
+  const zoneLL=zl?zl.lat.toFixed(5)+", "+zl.lng.toFixed(5):d.zoneLL;
+  try{await put("settings","delivery",{baseFee,baseKm,perKm,farKm,farPerKm,maxKm:d.maxKm,maxKg,zoneKm,zoneLL,updatedAt:Date.now()});toast(T.saved);render()}catch(e){toast((e&&e.message)||"error")}
 }
 
 /* ---- live refresh ---- */
@@ -3655,7 +3669,12 @@ const feeMain=o=>{
    "team"  shop in the capital, customer in a province → team hands it to a carrier
    For "shop" and "team" the customer pays the carrier at the destination branch, so our fee is 0. */
 const dMode=o=>!shopLocal(shopOf(o))?"shop":o.kind==="carrier"?"team":"door";
-const pMode=p=>shopLocal(shopOf(p))?"door":"shop";
+/* door delivery needs a shop the team collects from AND a customer inside the delivery zone
+   (straight-line distance from the zone centre). Unknown customer location: shown as door, checked at checkout. */
+const zoneDist=ll=>{const c=parseLL(DEL().zoneLL);return c&&ll?hav(c,ll):null};
+const inZone=ll=>{const d=zoneDist(ll);return d==null?null:d<=DEL().zoneKm};
+const custLL=()=>parseLL(S.co&&S.co.map)||(S.addrs&&S.addrs[0]&&parseLL(S.addrs[0].map))||null;
+const pMode=p=>shopLocal(shopOf(p))&&inZone(custLL())!==false?"door":"shop";
 const autoFee=o=>{if(dMode(o)!=="door")return 0;const k=autoKm(o);if(k==null)return null;const f=feeKm(k);return f>0?(feeMain(o)?f:0):null};
 const autoTotal=o=>{const f=autoFee(o);return f==null?null:curPrice(o)*(+o.qty||1)+f};
 /* the order has a trusted amount to pay: locked by the team, or computable from shop + customer coordinates */
@@ -3859,7 +3878,7 @@ function startOrder(){
  /* carrier orders: branch and phone are typed fresh every time, never carried over */
  Object.assign(S.co,{branch:"",brPhone:"",village:"",district:"",prov:""});
  if(!S.user){S.after="checkout";S.lg={step:"phone",phone:"",code:"",err:""};S.screen="login";render();return}
- if(!S.co.addr&&S.addrs.length)useAddr(0);
+ if(S.addrs.length&&!parseLL(S.co.map))useAddr(0);
  S.co.name=S.co.name||S.user.name||"";S.co.phone=S.co.phone||S.user.phone||"";S.screen="checkout";render();
 }
 
@@ -3876,7 +3895,7 @@ function coLines(){
 /* one delivery fee per shop: items from the same shop travel together */
 function coSum(){
  const L=coLines();if(!L.length)return "";
- const ll=parseLL(S.co.map),kind=guessKind(S.co.addr||""),G={};
+ const ll=parseLL(S.co.map),kind=inZone(ll)===false?"carrier":"local",G={};
  L.forEach(l=>{const k=l.p.shopId||norm(l.p.shopName);(G[k]=G[k]||[]).push(l)});
  const many=Object.keys(G).length>1;let total=0,allFee=true,out="",needLoc=false;
  for(const g of Object.values(G)){
@@ -3896,13 +3915,14 @@ function checkoutHtml(){
  const C=S.co,L=coLines();
  if(!L.length)return `<div class="empty">${T.empty}</div>`;
  const anyDoor=L.some(l=>pMode(l.p)==="door"),anyShip=L.some(l=>pMode(l.p)!=="door");
- return `${S.addrs.length?`<div class="fld"><span>${T.savedAddr}</span>${S.addrs.map((a,i)=>`<label class="radio ${C.addr===a.addr&&(C.map||"")===(a.map||"")?"on":""}"><input type="radio" name="sa" data-useaddr="${i}" ${C.addr===a.addr&&(C.map||"")===(a.map||"")?"checked":""}><span><b>${esc(a.name)} · ${esc(a.phone)}</b><small>${esc(a.addr)}${a.map?" · 📍":""}</small></span></label>`).join("")}<small>${T.savedAddrHint}</small></div>`:""}
+ const ll=parseLL(C.map),dz=zoneDist(ll);
+ return `<section class="card" style="gap:6px;border:2px solid ${ll?"var(--line)":"var(--accent)"}"><span class="psub" style="font-size:12px">📍 ${T.adTo}</span>
+ ${ll?`<b>${esc(C.addr||"")}</b><span class="psub" style="font-size:13px">${esc(C.name||"")} · ${esc(C.phone||"")}</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${zoneBadge(C.map)}${dz!=null?`<small class="psub">${T.adFromCenter(Math.round(dz))}</small>`:""}</div>`
+  :`<b>${T.adPick}</b><span class="psub" style="font-size:13px">${T.adPickS}</span>`}
+ <button class="${ll?"sbtn":"cta"}" data-x="apick" data-id="checkout" style="${ll?"align-self:flex-start":""}">${ll?T.adChange:"📍 "+T.adPickBtn}</button></section>
  <div class="two"><label class="fld">${T.rName}<input data-co="name" value="${esc(C.name)}" autocomplete="name"></label>
  <label class="fld">${T.rPhone}<input data-co="phone" type="tel" value="${esc(C.phone)}" placeholder="020 xxxx xxxx" style="font-family:var(--fn)"></label></div>
  ${anyDoor?`${anyShip?`<b style="margin-top:4px">🚚 ${T.doorPart}</b>`:""}
- <label class="fld"><span>${T.rAddr} <small>${T.rAddrHint}</small></span><textarea data-co="addr" rows="3" placeholder="${T.rAddrPh}">${esc(C.addr)}</textarea></label>
- <label class="fld"><span>${T.rMap} <small>${T.rMapHint2}</small></span><input data-co="map" value="${esc(C.map||"")}" placeholder="${T.rMapPh}" autocomplete="off"></label>
- <button type="button" class="sbtn" data-x="geo" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px">${ic("pin",16,2)} ${T.geoBtn}</button>
  <div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.coInfoT}</b><br><span style="font-size:13px">${T.feeRule(DEL())}</span><br><span style="font-size:12px">${T.coInfoS(DEL())}</span></div>`:""}
  ${anyShip?branchHtml(C):""}
  ${refHtml()}
@@ -3915,11 +3935,12 @@ const placeOrder=guard(async()=>{
  const L=coLines(),C=S.co;
  if(!L.length||L.some(l=>stockLeft(l.p,l.v)<l.qty)){toast(T.soldOut);return}
  const anyDoor=L.some(l=>pMode(l.p)==="door"),anyShip=L.some(l=>pMode(l.p)!=="door");
+ if(!parseLL(C.map)){toast(T.adNeedLoc);S.addrTo="checkout";S.tab="home";S.screen="addr";render();return}
  if(!C.name.trim()||pn(C.phone).length<9||(anyDoor&&!String(C.addr||"").trim())){toast(T.coErr);return}
  if(anyShip&&(!String(C.branch||"").trim()||pn(C.brPhone).length<9||!String(C.district||"").trim()||!C.prov)){toast(T.brErr);return}
  /* one order per line; a cart's orders share a group id so each shop confirms its own items,
     the delivery fee is charged once per shop, and the customer pays them with one QR */
- const now=Date.now(),R=RUL(),gid=L.length>1?newId("g"):"",ll=parseLL(C.map),kind=guessKind(C.addr);let first="";
+ const now=Date.now(),R=RUL(),gid=L.length>1?newId("g"):"",ll=parseLL(C.map),kind="local";let first="";
  for(const [i,l] of L.entries()){
   const id=newId("o");if(!first)first=id;const door=pMode(l.p)==="door";
   await put("orders",id,{uid:H.uid||"",no:"SS-"+nextNo(),gid,pid:l.p.id,pname:l.p.name,vlabel:l.v.label,qty:l.qty,price:+l.v.price,kg:kgNum(l.p.weight),img:l.v.img||imgsOf(l.p)[0]||"",
@@ -4777,6 +4798,7 @@ function viewKey3(){
 function mainHtml3(k){
  switch(k){
   case "login":return loginHtml();
+  case "addr":return addrPickHtml();
   case "return":return returnHtml();
   case "orders":return ordersListHtml();
   case "order":return orderDetailHtml(byId(ST.orders,S.oid));
@@ -4801,6 +4823,7 @@ function mainHtml3(k){
 function headerHtml3(k){
  switch(k){
   case "login":return `<header class="hd"><div class="logo">${logoSvg(30)}<span>Sunsoul</span></div></header>`;
+  case "addr":return `<header class="hd team" style="background:var(--card);color:var(--ink);border-bottom:1px solid var(--line)"><button class="bk" data-x="aback" aria-label="${T.back}">${ic("back",22,2.4)}</button><div class="ht"><h1>${T.adTitle}</h1></div></header>`;
   case "return":{const o=byId(ST.orders,S.oid);return `<header class="hd team" style="background:var(--card);color:var(--ink);border-bottom:1px solid var(--line)"><button class="bk" data-x="rtback" aria-label="${T.back}">${ic("back",22,2.4)}</button><div class="ht"><h1>${T.rtTitle}</h1>${o?`<span style="color:var(--muted)">#${esc(o.no)} · ${esc(o.pname)} · ${esc(o.vlabel)}</span>`:""}</div></header>`}
   case "order":return orderHeader(byId(ST.orders,S.oid));
   case "cart":return `<header class="hd plain"><h1>${T.navCart}${cartN()?" · "+cartN():""}</h1></header>`;
@@ -4873,6 +4896,17 @@ app.addEventListener("click",e=>{
   case "slippick":slipPick(id);break;
   case "slipsend":slipUp(id);break;
   case "catstog":S.catsOpen=!S.catsOpen;render(true);break;
+  case "apick":S.addrTo=id||"home";S.af=null;S.tab="home";S.screen="addr";render();window.scrollTo(0,0);break;
+  case "aback":addrBack();break;
+  case "anew":S.af=addrBlank();rr();break;
+  case "ageonew":S.af=addrBlank();rr();hereNow(m=>{if(S.af){S.af.map=m;rr()}});break;
+  case "ageo":hereNow(m=>{if(S.af){S.af.map=m;rr()}});break;
+  case "aedit":{const a=S.addrs[+d.i];if(a)S.af={i:+d.i,map:a.map||"",addr:a.addr||"",name:a.name||"",phone:a.phone||""};rr();window.scrollTo(0,0);break}
+  case "asel":{const a=S.addrs.splice(+d.i,1)[0];if(a){S.addrs.unshift(a);saveProfile();useAddr(0)}addrBack();break}
+  case "asave":addrSave();break;
+  case "adel":{if(S.af&&S.af.i>=0){S.addrs.splice(S.af.i,1);saveProfile();if(!S.addrs.length)Object.assign(S.co,{addr:"",map:""});else useAddr(0)}S.af=null;rr();break}
+  case "acancel":S.af=null;rr();break;
+  case "zonegeo":hereNow(m=>{const i=$("[data-fzonell]");if(i)i.value=m;toast(T.zSaveHint)});break;
   case "help":{const u=contactUrl(T.ctHello);if(u)window.open(u,"_blank","noopener");else toast(T.ctNone);break}
   case "copyid":{const v=H.uid||"";try{navigator.clipboard.writeText(v).then(()=>toast(T.copied),()=>toast(v))}catch(e){toast(v)}break}
   case "ctsave":guard(contactSave)();break;
@@ -4995,6 +5029,7 @@ app.addEventListener("input",e=>{
  if(d.sa!==undefined&&S.sa){S.sa[d.sa]=t.value;return}
  if(d.si!==undefined&&S.sa){S.sa.item[d.si]=t.value;return}
  if(d.safnote!==undefined){(S.saf[d.safnote]||(S.saf[d.safnote]={}))["note"]=t.value;return}
+ if(d.af!==undefined&&S.af){S.af[d.af]=t.value;if(d.af==="map")clearTimeout(S.afT),S.afT=setTimeout(()=>{if(parseLL(S.af&&S.af.map))rr()},600);return}
  if(d.ctf!==undefined){(S.ctDraft||(S.ctDraft={}))[d.ctf]=t.value;return}
  if(d.payf!==undefined){(S.payDraft||(S.payDraft={}))[d.payf]=t.value;return}
  if(d.apnote!==undefined){S.nf["ap"+d.apnote]=t.value;return}
@@ -5035,6 +5070,53 @@ function rememberAddr(a){
  if(!a.addr)return;const k=x=>norm(x.addr)+"|"+(x.map||"")+"|"+pn(x.phone)+"|"+norm(x.branch||"");
  S.addrs=[a,...S.addrs.filter(x=>k(x)!==k(a))].slice(0,5);saveProfile();
 }
+function hereNow(ok){
+ if(!navigator.geolocation){toast(T.geoFail);return}
+ toast(T.geoWait);
+ navigator.geolocation.getCurrentPosition(p=>ok(p.coords.latitude.toFixed(6)+", "+p.coords.longitude.toFixed(6)),()=>toast(T.geoFail),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+function zoneBadge(map){
+ const ll=parseLL(map);if(!ll)return `<span class="chip r">⚠ ${T.adNoLoc}</span>`;
+ return inZone(ll)?`<span class="chip g">🚚 ${T.doorShort}</span>`:`<span class="chip b">📦 ${T.adOut}</span>`;
+}
+function locBarHtml(){
+ const a=S.addrs[0];
+ return `<button class="arow2" data-x="apick" data-id="home" style="width:100%;text-align:left;font-size:14px"><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><small class="psub" style="font-size:12px">📍 ${T.adTo}</small>
+  <b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a?esc(a.addr||a.map):T.adNone}</b></span>${a?zoneBadge(a.map):`<span class="chip a">${T.adSet}</span>`}</button>`;
+}
+function addrForm(){
+ const F=S.af,ll=parseLL(F.map);
+ return `<section class="card" style="border:2px solid var(--accent)"><b>${F.i>=0?T.adEditT:T.adNewT}</b>
+ <div class="note" style="text-align:left">${ll?`📍 <b>${T.adGot}</b> ${zoneBadge(F.map)}<br><small style="font-family:var(--fn)">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</small>`:`⚠ ${T.adNeedLoc}`}</div>
+ <button class="cta" data-x="ageo" style="background:var(--green)">📍 ${T.adHere}</button>
+ <label class="fld"><span>${T.adPaste} <small>${T.adPasteS}</small></span><input data-af="map" value="${esc(F.map||"")}" placeholder="17.97571, 102.63312" autocomplete="off"></label>
+ <label class="fld"><span>${T.adDetail} <small>${T.adDetailS}</small></span><textarea data-af="addr" rows="2" placeholder="${T.adDetailPh}">${esc(F.addr||"")}</textarea></label>
+ <div class="two"><label class="fld">${T.rName}<input data-af="name" value="${esc(F.name||"")}" autocomplete="name"></label>
+ <label class="fld">${T.rPhone}<input data-af="phone" type="tel" value="${esc(F.phone||"")}" placeholder="020 xxxx xxxx" style="font-family:var(--fn)"></label></div>
+ <button class="cta" data-x="asave">${T.adSave}</button>
+ <div class="aa">${F.i>=0?`<button class="sbtn danger" data-x="adel">${T.del}</button>`:""}<button class="sbtn" data-x="acancel">${T.cancel}</button></div></section>`;
+}
+function addrPickHtml(){
+ return `<button class="arow2" data-x="ageonew" style="width:100%;text-align:left;font-size:15px;font-weight:700"><span>📍 ${T.adHere}</span><span>›</span></button>
+ ${S.af?addrForm():""}
+ ${S.addrs.length?`<div class="fld"><span>${T.adSaved}</span>${S.addrs.map((a,i)=>`<div class="radio ${i===0?"on":""}" style="display:flex;align-items:center;gap:10px">
+  <button data-x="asel" data-i="${i}" style="all:unset;flex:1;min-width:0;display:flex;gap:10px;align-items:center;cursor:pointer"><input type="radio" name="adr" ${i===0?"checked":""} tabindex="-1" style="pointer-events:none">
+  <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="overflow:hidden;text-overflow:ellipsis">${esc(a.addr||a.map||"—")}</b><small>${esc(a.name||"")}${a.phone?" · "+esc(a.phone):""}</small>${zoneBadge(a.map)}</span></button>
+  <button class="sbtn" data-x="aedit" data-i="${i}" aria-label="${T.edit}" style="min-height:36px;padding:0 10px">✏</button></div>`).join("")}</div>`:`<div class="note">${T.adEmpty}</div>`}
+ ${S.af?"":`<button class="sbtn" data-x="anew" style="align-self:flex-start;min-height:44px">＋ ${T.adNew}</button>`}
+ <div class="note" style="text-align:left;font-size:13px">${T.adZoneInfo(DEL().zoneKm)}</div>`;
+}
+const addrBlank=()=>({i:-1,map:"",addr:"",name:(S.user&&S.user.name)||S.co.name||"",phone:(S.user&&S.user.phone)||S.co.phone||""});
+function addrSave(){
+ const F=S.af;if(!F)return;
+ if(!parseLL(F.map)){toast(T.adNeedLoc);return}
+ if(!String(F.addr||"").trim()){toast(T.adNeedDetail);return}
+ if(!String(F.name||"").trim()||pn(F.phone).length<9){toast(T.coErr);return}
+ const a={name:F.name.trim(),phone:F.phone.trim(),addr:F.addr.trim(),map:F.map.trim()};
+ if(F.i>=0)S.addrs.splice(F.i,1);
+ S.addrs=[a,...S.addrs].slice(0,8);S.af=null;saveProfile();useAddr(0);addrBack();
+}
+function addrBack(){const to=S.addrTo||"home";S.addrTo=null;S.af=null;S.screen=to==="checkout"?"checkout":"home";render();window.scrollTo(0,0)}
 function useAddr(i){const a=S.addrs[i];if(a)Object.assign(S.co,{name:a.name,phone:a.phone,addr:a.addr||"",map:a.map||""})}
 Object.assign(T,{savedAddr:"ທີ່ຢູ່ທີ່ບັນທຶກໄວ້",savedAddrHint:"ແຕະເພື່ອໃຊ້ · ຫຼື ແກ້ໄຂດ້ານລຸ່ມ ເພື່ອສົ່ງໄປບ່ອນໃໝ່ (ລະບົບຈະຈື່ໄວ້ໃຫ້)"});
 /* light / dark: "auto" follows the device; a choice is remembered in this browser only */
@@ -5155,6 +5237,15 @@ Object.assign(T,{saTitle:"ສະໝັກເປັນຜູ້ຂາຍ",saIntro
  saRejT:"ບໍ່ຜ່ານ · ເລືອກເຫດຜົນ",saReject:"ບໍ່ອະນຸມັດ",saNoteL:"ຂໍ້ຄວາມເຖິງຜູ້ສະໝັກ",saNotePh:"ເຊັ່ນ: ຮູບບັດມົວ ກະລຸນາຖ່າຍໃໝ່ໃນທີ່ແຈ້ງ",
  saNeedNote:"ຂຽນຂໍ້ຄວາມເຖິງຜູ້ສະໝັກກ່ອນ",saNeedReason:"ເລືອກເຫດຜົນທີ່ບໍ່ຜ່ານ",
  saDecided:{approved:"ອະນຸມັດແລ້ວ · ຮ້ານ ແລະ ສິນຄ້າຂຶ້ນເວັບແລ້ວ",needinfo:"ແຈ້ງຂໍຂໍ້ມູນເພີ່ມແລ້ວ",rejected:"ແຈ້ງຜົນແລ້ວ"}});
+Object.assign(T,{adTitle:"ສົ່ງໄປທີ່ໃດ?",adTo:"ສົ່ງໄປທີ່",adNone:"ຍັງບໍ່ໄດ້ຕັ້ງຈຸດສົ່ງ",adSet:"ຕັ້ງຈຸດສົ່ງ",adHere:"ໃຊ້ຕຳແໜ່ງປັດຈຸບັນ",
+ adSaved:"ຈຸດສົ່ງທີ່ບັນທຶກໄວ້",adEmpty:"ຍັງບໍ່ມີຈຸດສົ່ງ · ກົດ “ໃຊ້ຕຳແໜ່ງປັດຈຸບັນ” ຫຼື ເພີ່ມທີ່ຢູ່ໃໝ່",adNew:"ເພີ່ມທີ່ຢູ່ໃໝ່",adNewT:"ທີ່ຢູ່ໃໝ່",adEditT:"ແກ້ໄຂທີ່ຢູ່",
+ adGot:"ໄດ້ຕຳແໜ່ງແລ້ວ",adNeedLoc:"ກະລຸນາກົດ “ໃຊ້ຕຳແໜ່ງປັດຈຸບັນ” ຫຼື ວາງພິກັດ Google Maps",adPaste:"ຫຼື ວາງລິ້ງ / ພິກັດ Google Maps",adPasteS:"(ຖ້າບໍ່ໄດ້ຢູ່ຈຸດສົ່ງຕອນນີ້)",
+ adDetail:"ລາຍລະອຽດທີ່ຢູ່",adDetailS:"(ບ້ານ, ຈຸດສັງເກດ)",adDetailPh:"ເຊັ່ນ: ບ້ານໂພນໄຊ ເຮືອນສີຂາວ ຕິດຮ້ານກາເຟ",adNeedDetail:"ກະລຸນາໃສ່ລາຍລະອຽດທີ່ຢູ່",adSave:"ບັນທຶກ ແລະ ໃຊ້ທີ່ຢູ່ນີ້",
+ adNoLoc:"ບໍ່ມີຕຳແໜ່ງ · ກົດ ✏",adOut:"ນອກເຂດ · ຝາກຂົນສົ່ງ",adPick:"ເລືອກຈຸດສົ່ງ",adPickS:"ໃຊ້ຕຳແໜ່ງປັດຈຸບັນ ຫຼື ຈຸດທີ່ບັນທຶກໄວ້ · ລະບົບຈະກວດວ່າສົ່ງຮອດເຮືອນໄດ້ບໍ",
+ adPickBtn:"ເລືອກຈຸດສົ່ງ",adChange:"ປ່ຽນຈຸດສົ່ງ",adFromCenter:k=>k+" ກມ ຈາກໃຈກາງເມືອງ",
+ adZoneInfo:k=>"🚚 ສົ່ງຮອດເຮືອນ: ພາຍໃນ "+k+" ກມ ຈາກໃຈກາງນະຄອນຫຼວງ (ຮ້ານທີ່ທີມໄປຮັບ) · 📦 ນອກເຂດ: ຝາກຂົນສົ່ງໄປສາຂາໃກ້ເຈົ້າ",
+ zT:"ເຂດສົ່ງຮອດເຮືອນ",zS:"ລັດສະໝີຈາກຈຸດກາງ (ເສັ້ນຊື່) · ນອກເຂດ = ຝາກຂົນສົ່ງ",zCenter:"ຈຸດກາງຂອງເຂດ",zCenterS:"(ພິກັດ ເຊັ່ນ ປະຕູໄຊ 17.97080, 102.61860)",
+ zHere:"ໃຊ້ຕຳແໜ່ງຂອງຂ້ອຍເປັນຈຸດກາງ",zBadLL:"ພິກັດຈຸດກາງບໍ່ຖືກຕ້ອງ",zSaveHint:"ໄດ້ຕຳແໜ່ງແລ້ວ · ກົດບັນທຶກດ້ານລຸ່ມ"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
  suNeedName:"ກະລຸນາໃສ່ຊື່",suHave:"ມີບັນຊີແລ້ວ?",suToLogin:"ເຂົ້າສູ່ລະບົບ",suNone:"ຍັງບໍ່ມີບັນຊີ?",suToNew:"ສ້າງບັນຊີໃໝ່",
  suNameT:"ຍິນດີຕ້ອນຮັບສູ່ Sunsoul!",suNameS:"ບອກຊື່ຂອງເຈົ້າ ເພື່ອໃຊ້ຕອນສັ່ງຊື້ ແລະ ຕິດຕໍ່",suGo:"ເລີ່ມໃຊ້ງານ",suDone:n=>"ສ້າງບັນຊີສຳເລັດ · ຍິນດີຕ້ອນຮັບ "+n,

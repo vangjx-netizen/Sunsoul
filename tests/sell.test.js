@@ -6,7 +6,7 @@ const pick=async sel=>{const [fc]=await Promise.all([p.waitForEvent('filechooser
 await p.evaluate(()=>{S.user={phone:'020 5555 7777',name:'Kham'};S.tab='account';render()});
 ok(!!(await p.$('[data-x="sellopen"]')),'account page has a working "apply to sell" button');
 await p.click('[data-x="sellopen"]');await p.waitForTimeout(100);
-let t=await p.textContent('main');ok(t.includes('ສະໝັກເປັນຜູ້ຂາຍ')&&t.includes('ທີມ Sunsoul ເທົ່ານັ້ນເຫັນ'),'form explains the steps and privacy');
+let t=await p.textContent('main');ok(t.includes('ສະໝັກເປັນຜູ້ຂາຍ')&&t.includes('ຫຼັງຜູ້ຊື້ໄດ້ຮັບເຄື່ອງ'),'form explains the steps and when the seller is paid');
 ok(!(await p.$('[data-x="saimg"]'))&&!(await p.$('[data-sa="sells"]')),'no ID photo, selfie or what-will-you-sell fields');
 await p.click('[data-x="sasend"]');await p.waitForTimeout(100);
 ok(await p.evaluate(()=>ST.sellerApps.length)===0,'empty form cannot be sent');

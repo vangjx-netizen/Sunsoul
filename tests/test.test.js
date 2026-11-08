@@ -45,13 +45,13 @@ async function pickPhoto(p, selector) {
   // checkout: fee shown immediately from coordinates (~2.5 km straight → 4 km road → 15,000)
   await p.evaluate(() => { S.pid = 'p2'; S.vi = 0; S.co = { name: 'Cust', phone: '020 7777 8888', addr: 'ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ', map: '' }; S.tab = 'home'; S.screen = 'checkout'; render(); });
   ok(!(await p.$('[data-copay]')), 'COD option removed from checkout');
-  await p.fill('[data-co="map"]', '17.9757, 102.6331');
+  await p.evaluate(() => { S.co.map = '17.9757, 102.6331'; rr(); });
   let sum = await p.textContent('#cosum');
   ok(sum.includes('15,000') && sum.includes('215,000') && sum.includes('ກມ'), 'checkout shows distance, fee 15,000 and total 215,000');
-  await p.fill('[data-co="map"]', '17.9757, 102.6900');
+  await p.evaluate(() => { S.co.map = '17.9757, 102.6900'; rr(); });
   sum = await p.textContent('#cosum');
   ok(sum.includes('36,000'), 'farther point (~12 km road) → 12 × 3,000 = 36,000');
-  await p.fill('[data-co="map"]', 'https://maps.app.goo.gl/u2VaEW3A7bkK2D789');
+  await p.evaluate(() => { S.co.map = 'https://maps.app.goo.gl/u2VaEW3A7bkK2D789'; rr(); });
   ok((await p.textContent('#cosum')).includes('maps.app.goo.gl'), 'short link explains it cannot be read');
   await p.screenshot({ path: path.join(__dirname, 'out', 'checkout.png'), fullPage: true });
 
@@ -207,7 +207,7 @@ async function pickPhoto(p, selector) {
   ok(pg.includes('AN-12345') && pg.includes('ສາຂາ') && !!(await p.$(`[data-x="received"][data-id="${oL}"]`)), 'customer sees carrier + receipt number and can confirm receipt');
   await p.evaluate(() => { S.tab = 'team'; S.sub = 'run'; render(); });
   ok(!(await p.textContent('main')).includes('AN-12345'), 'team delivery list does not include it');
-  const oP = await p.evaluate(async () => { S.pid = 'p2'; S.vi = 0; S.co = { name: 'Cust', phone: '020 7777 8888', addr: 'ເມືອງໄກສອນ, ແຂວງ ສະຫວັນນະເຂດ', map: '16.57, 104.75' }; S.coCart = false; S.screen = 'checkout'; S.tab = 'home'; render(); await placeOrder(); await new Promise(r => setTimeout(r, 20)); return S.oid; });
+  const oP = await p.evaluate(async () => { S.pid = 'p2'; S.vi = 0; S.co = { name: 'Cust', phone: '020 7777 8888', addr: 'ເມືອງໄກສອນ, ແຂວງ ສະຫວັນນະເຂດ', map: '16.57000, 104.75000', branch: 'ອານຸສິດ ໄກສອນ', brPhone: '020 5555 7777', district: 'ໄກສອນ', prov: 'ສະຫວັນນະເຂດ' }; S.coCart = false; S.screen = 'checkout'; S.tab = 'home'; render(); await placeOrder(); await new Promise(r => setTimeout(r, 20)); return S.oid; });
   ok(await p.evaluate(id => { const o = byId(ST.orders, id); return dMode(o) === 'team' && autoFee(o) === 0 }, oP), 'capital shop → province customer: team ships, carrier paid at branch');
 
   // team-listed products: editors can edit them from the shop screen; team can hand them over to the shop
@@ -239,7 +239,7 @@ async function pickPhoto(p, selector) {
 
   await p.evaluate(async () => { const b = ST.products.find(q => q.id === 'p2'); await put(pcoll(b), b.id, { ...pdoc(b), variants: [{ label: '—', price: 200000, stock: 20 }] }); });
   // checkout for a carrier-shipping shop: branch fields instead of address + map
-  await p.evaluate(() => { S.co = { name: 'Cust', phone: '020 7777 8888' }; S.coCart = false; S.pid = 'pS'; S.vi = 0; S.tab = 'home'; S.screen = 'checkout'; render(); });
+  await p.evaluate(() => { S.co = { name: 'Cust', phone: '020 7777 8888', map: '17.9757, 102.6331' }; S.coCart = false; S.pid = 'pS'; S.vi = 0; S.tab = 'home'; S.screen = 'checkout'; render(); });
   ok(!(await p.$('[data-co="map"]')) && !(await p.$('[data-x="geo"]')) && !(await p.$('[data-co="addr"]')) && !!(await p.$('[data-co="branch"]')) && !!(await p.$('select[data-co="prov"]')), 'no-door product: no map/address, branch + village + district + province instead');
   const nBefore = await p.evaluate(() => ST.orders.length);
   await p.evaluate(async () => { await placeOrder(); await new Promise(r => setTimeout(r, 20)) });
@@ -256,8 +256,8 @@ async function pickPhoto(p, selector) {
   await p.evaluate(() => { S.pid = 'pS'; S.vi = 0; S.tab = 'home'; S.screen = 'product'; render(); });
   await p.click('[data-act="order"]'); await wait(p);
   ok(await p.inputValue('[data-co="branch"]') === '' && await p.inputValue('[data-co="brPhone"]') === '' && await p.inputValue('[data-co="district"]') === '', 'next carrier order starts with empty branch, phone and district');
-  await p.evaluate(() => { S.co = {}; S.pid = 'p2'; S.vi = 0; S.tab = 'home'; S.screen = 'checkout'; render(); });
-  ok(!!(await p.$('[data-co="map"]')) && !(await p.$('[data-co="branch"]')), 'door product: address + map, no branch fields');
+  await p.evaluate(() => { S.co = { map: '17.97570, 102.63310' }; S.pid = 'p2'; S.vi = 0; S.tab = 'home'; S.screen = 'checkout'; render(); });
+  ok(!!(await p.$('[data-x="apick"]')) && !(await p.$('[data-co="branch"]')), 'door product: delivery-point card, no branch fields');
 
   // cart: two items from Shop A + one from a second shop with coordinates
   await p.evaluate(() => { ST.shops.push({ id: 's3', name: 'Shop C', phone: '020 3333 4444', type: 'shop', map: '17.9757, 102.6331' }); ST.tp.push({ id: 'p4', name: 'Cup', shopId: 's3', shopName: 'Shop C', variants: [{ label: '—', price: 30000, stock: 9 }], imgs: [], active: true, createdAt: 1, stockAt: 1, updatedAt: 1 }); mergeP(); S.cart = []; });
@@ -270,7 +270,7 @@ async function pickPhoto(p, selector) {
   ok(ct.includes('Shop A') && ct.includes('Shop C') && ct.includes('479,000'), 'cart groups by shop; goods 2×200,000 + 30,000 + 49,000 = 479,000');
   await p.evaluate(() => { S.co = { name: 'Cust', phone: '020 7777 8888', addr: 'ບ້ານ ໂພນທັນ, ນະຄອນຫຼວງ', map: '' }; });
   await p.click('[data-x="cbuy"]'); await wait(p);
-  await p.fill('[data-co="map"]', '17.9757, 102.6331');
+  await p.evaluate(() => { S.co.map = '17.9757, 102.6331'; rr(); });
   const cs = await p.textContent('#cosum');
   ok(cs.includes('× 2') && cs.includes('Shop A') && cs.includes('Shop C'), 'checkout lists cart lines with quantities and a fee line per shop');
   ok(cs.includes('509,000'), 'total = 479,000 goods + 15,000 (Shop A) + 15,000 (Shop C, 0 km→1 km)');
