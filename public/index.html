@@ -2577,12 +2577,21 @@ document.documentElement.lang="lo";
  const opt={passive:false},stop=e=>{if(e.cancelable)e.preventDefault()};
  ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,opt));
  ["touchstart","touchmove"].forEach(t=>document.addEventListener(t,e=>{if(e.touches&&e.touches.length>1)stop(e)},opt));
- /* snap back: re-applying the viewport tag makes iOS return to scale 1 */
- let busy=0;const reset=()=>{const v=window.visualViewport;if(!v||v.scale<=1.01||busy)return;busy=1;
-  m.setAttribute("content","width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover");
-  setTimeout(()=>{m.setAttribute("content",c);busy=0},300)};
- if(window.visualViewport){visualViewport.addEventListener("resize",()=>setTimeout(reset,250));visualViewport.addEventListener("scroll",()=>setTimeout(reset,250))}
- document.addEventListener("touchend",e=>{if(!e.touches||!e.touches.length)setTimeout(reset,200)},{passive:true});})();
+ /* snap back: once all fingers are up, keep nudging iOS back to scale 1 until it is there.
+    iOS keeps animating a pinch after release and ignores a repeated identical tag, so each try
+    alternates between changing the tag and replacing it with a fresh one. */
+ let tries=0,timer=0,down=0;const zoomed=()=>!!window.visualViewport&&visualViewport.scale>1.01;
+ const nudge=()=>{timer=0;if(down||!zoomed()){tries=0;return}
+  const alt="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=0,viewport-fit=cover";
+  if(tries%2===0){m.setAttribute("content",alt);setTimeout(()=>m.setAttribute("content",c),60)}
+  else{const n=document.createElement("meta");n.name="viewport";n.content=alt;m.replaceWith(n);m=n;setTimeout(()=>m.setAttribute("content",c),60)}
+  if(++tries<12)timer=setTimeout(nudge,350);else tries=0};
+ const later=ms=>{if(!timer)timer=setTimeout(nudge,ms)};
+ document.addEventListener("touchstart",e=>{down=e.touches?e.touches.length:1},{passive:true});
+ document.addEventListener("touchend",e=>{down=e.touches?e.touches.length:0;if(!down)later(250)},{passive:true});
+ document.addEventListener("touchcancel",()=>{down=0;later(250)},{passive:true});
+ if(window.visualViewport)visualViewport.addEventListener("resize",()=>later(400));
+})();
 /* Lao interface text — kept in one place so a native speaker can review it. */
 const T={
  qPh:"ຄົ້ນຫາ",bLabel:"ງົບຂອງເຈົ້າ (ບໍ່ລວມຄ່າສົ່ງ)",bPh:"ງົບທີ່ຕ້ອງການ",budgetWord:"ງົບ",kip:"ກີບ",
