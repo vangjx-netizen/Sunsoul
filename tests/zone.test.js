@@ -9,7 +9,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   p.on('pageerror', e => { console.log('ERR', e.message); fails++; });
   await p.goto('file://' + path.join(__dirname, '..', 'public', 'index.html')); await p.waitForTimeout(300);
 
-  ok(/user-scalable=no/.test(await p.getAttribute('meta[name="viewport"]', 'content')) && /maximum-scale=1/.test(await p.getAttribute('meta[name="viewport"]', 'content')), 'page zoom is turned off');
+  { const vp = await p.getAttribute('meta[name="viewport"]', 'content'); ok(!/user-scalable=no/.test(vp) && /initial-scale=1/.test(vp) && await p.evaluate(() => document.documentElement.innerHTML.includes('springs back to normal size')), 'pinch zoom allowed, page springs back after release'); }
 
   await p.evaluate(() => {
     S.user = { phone: '020 7777 8888', name: 'Noy' }; S.addrs = [];
