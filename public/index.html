@@ -20,7 +20,10 @@
 --hdr:#0C0B09;--on-hdr:#F2EFE8;--hdr-btn:#26241F;--hdr-sub:#B3AD9F;--off:#A29C8E;--hero1:#2A1A0A;--hero2:#3D2410;--hero-sub:#F2D58C;color-scheme:dark}
 *{box-sizing:border-box}
 /* shop list: a product marked out of stock is faded so it is not mistaken for one on sale */
-.arow.pout .am{opacity:.4;transition:opacity .2s}
+.arow.pout{margin-left:28px;padding:8px;grid-template-columns:44px minmax(0,1fr);gap:8px}
+.arow.pout .th{width:44px;height:44px;border-radius:8px}
+.arow.pout .am{opacity:.4;font-size:12px}.arow.pout .am b{font-size:13px}
+.arow.pout .aa .sbtn{min-height:36px;font-size:13px}
 html,body{overscroll-behavior-x:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--page);color:var(--ink);font-family:var(--f);line-height:1.5;font-size:15px}
 button,input,select,textarea{font:inherit;color:inherit}
