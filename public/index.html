@@ -19,6 +19,8 @@
 --amber-bg:#3A2F14;--amber-ink:#F2D58C;--amber-ink2:#F2B33D;--red-bg:#3D2318;--bad:#FF8A7E;--inv:#F2EFE8;--on-inv:#1C1B18;
 --hdr:#0C0B09;--on-hdr:#F2EFE8;--hdr-btn:#26241F;--hdr-sub:#B3AD9F;--off:#A29C8E;--hero1:#2A1A0A;--hero2:#3D2410;--hero-sub:#F2D58C;color-scheme:dark}
 *{box-sizing:border-box}
+/* shop list: a product marked out of stock is faded so it is not mistaken for one on sale */
+.arow.pout .th,.arow.pout .am{opacity:.4;filter:grayscale(1);transition:opacity .2s}
 html,body{overscroll-behavior-x:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--page);color:var(--ink);font-family:var(--f);line-height:1.5;font-size:15px}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -4314,7 +4316,7 @@ function sProductsHtml(){
  const on=L.filter(p=>!OFF.has(p.id)).length;
  return `<div class="feedh"><h2 class="sec">${T.shMyProd}</h2><span>${L.length} · ${T.shHave} ${on} · ${T.shOut} ${L.length-on}</span></div><p class="psub" style="margin:0">${T.shToggle}</p>
  <button class="cta" data-x="spnew">${T.spBtn}</button>
- ${L.map(p=>{const stock=priced(p).reduce((a,v)=>a+stockLeft(p,v),0),off=OFF.has(p.id);return `<div class="arow"><div class="th">${pic(p,0)}</div>
+ ${L.map(p=>{const stock=priced(p).reduce((a,v)=>a+stockLeft(p,v),0),off=OFF.has(p.id);return `<div class="arow${off?" pout":""}"><div class="th">${pic(p,0)}</div>
   <div class="am"><b>${esc(p.name)}</b>${p.active===false?` <span class="chip r">${T.sellOff}</span>`:""}<div class="shop">${vars(p).map(v=>esc(v.label)).join(" · ")} — ${T.shLeft(stock)}</div><div style="font-family:var(--fn);font-weight:700">${fmt(Math.min(...priced(p).map(v=>+v.price))||0)} ${T.kip}</div></div>
   <div class="aa"><label class="sw"><input type="checkbox" data-xc="soff" data-id="${esc(p.id)}" ${off?"":"checked"}> ${off?T.shOut:T.shHave}</label>${p.src==="sp"||S.canAdmin?`<button class="sbtn" data-x="spedit" data-id="${esc(p.id)}">${T.edit}</button>`:""}</div></div>`}).join("")||`<div class="empty">${T.noItems}</div>`}
  ${(()=>{const M=ST.shopProducts.filter(x=>x.shopId===S.shopId&&(x.status==="pending"||x.status==="rejected")).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -5010,7 +5012,7 @@ app.addEventListener("change",e=>{
  if(t.dataset.useaddr!==undefined){useAddr(+t.dataset.useaddr);rr();return}
  if(t.dataset.xSel==="storeview"){if(t.value){S.shopId=t.value;S.tab="store";S.ss="orders";render()}return}
  const c=t.dataset.xc;if(!c)return;const d=t.dataset;
- if(c==="soff"){toggleOff(d.id,t.checked);return}
+ if(c==="soff"){const r=t.closest(".arow"),l=t.closest("label");if(r)r.classList.toggle("pout",!t.checked);if(l&&l.lastChild)l.lastChild.textContent=" "+(t.checked?T.shHave:T.shOut);toggleOff(d.id,t.checked);return}
  if(c==="vchk"){const a=S.chk[d.id]||(S.chk[d.id]=[0,0,0,0]);a[+d.i]=t.checked?1:0;rr();return}
  if(c==="pchk"){pkOf(d.k).checks[d.id]=t.checked;rr();return}
  if(c==="hpack"){S.hd[d.id].packed=t.checked;rr();return}
