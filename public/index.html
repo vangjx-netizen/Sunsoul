@@ -3679,6 +3679,7 @@ const dMode=o=>!shopLocal(shopOf(o))?"shop":o.kind==="carrier"?"team":"door";
 const zoneDist=ll=>{const c=parseLL(DEL().zoneLL);return c&&ll?hav(c,ll):null};
 const inZone=ll=>{const d=zoneDist(ll);return d==null?null:d<=DEL().zoneKm};
 const custLL=()=>parseLL(S.co&&S.co.map)||(S.addrs&&S.addrs[0]&&parseLL(S.addrs[0].map))||null;
+const needPt=L=>L.some(l=>shopLocal(shopOf(l.p)));
 const pMode=p=>shopLocal(shopOf(p))&&inZone(custLL())!==false?"door":"shop";
 const autoFee=o=>{if(dMode(o)!=="door")return 0;const k=autoKm(o);if(k==null)return null;const f=feeKm(k);return f>0?(feeMain(o)?f:0):null};
 const autoTotal=o=>{const f=autoFee(o);return f==null?null:curPrice(o)*(+o.qty||1)+f};
@@ -3921,10 +3922,12 @@ function checkoutHtml(){
  if(!L.length)return `<div class="empty">${T.empty}</div>`;
  const anyDoor=L.some(l=>pMode(l.p)==="door"),anyShip=L.some(l=>pMode(l.p)!=="door");
  const ll=parseLL(C.map),dz=zoneDist(ll);
- return `<section class="card" style="gap:6px;border:2px solid ${ll?"var(--line)":"var(--accent)"}"><span class="psub" style="font-size:12px">📍 ${T.adTo}</span>
+ /* the delivery point is needed when an item comes from a shop the team collects from (the point decides
+    door delivery or carrier); if every item is shipped by its own shop, only the branch is asked */
+ return `${needPt(L)?`<section class="card" style="gap:6px;border:2px solid ${ll?"var(--line)":"var(--accent)"}"><span class="psub" style="font-size:12px">📍 ${T.adTo}</span>
  ${ll?`<b>${esc(C.addr||"")}</b><span class="psub" style="font-size:13px">${esc(C.name||"")} · ${esc(C.phone||"")}</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${zoneBadge(C.map)}${dz!=null?`<small class="psub">${T.adFromCenter(Math.round(dz))}</small>`:""}</div>`
   :`<b>${T.adPick}</b><span class="psub" style="font-size:13px">${T.adPickS}</span>`}
- <button class="${ll?"sbtn":"cta"}" data-x="apick" data-id="checkout" style="${ll?"align-self:flex-start":""}">${ll?T.adChange:"📍 "+T.adPickBtn}</button></section>
+ <button class="${ll?"sbtn":"cta"}" data-x="apick" data-id="checkout" style="${ll?"align-self:flex-start":""}">${ll?T.adChange:"📍 "+T.adPickBtn}</button></section>`:""}
  <div class="two"><label class="fld">${T.rName}<input data-co="name" value="${esc(C.name)}" autocomplete="name"></label>
  <label class="fld">${T.rPhone}<input data-co="phone" type="tel" value="${esc(C.phone)}" placeholder="020 xxxx xxxx" style="font-family:var(--fn)"></label></div>
  ${anyDoor?`${anyShip?`<b style="margin-top:4px">🚚 ${T.doorPart}</b>`:""}
@@ -3940,7 +3943,7 @@ const placeOrder=guard(async()=>{
  const L=coLines(),C=S.co;
  if(!L.length||L.some(l=>stockLeft(l.p,l.v)<l.qty)){toast(T.soldOut);return}
  const anyDoor=L.some(l=>pMode(l.p)==="door"),anyShip=L.some(l=>pMode(l.p)!=="door");
- if(!parseLL(C.map)){toast(T.adNeedLoc);S.addrTo="checkout";S.tab="home";S.screen="addr";render();return}
+ if(needPt(L)&&!parseLL(C.map)){toast(T.adNeedLoc);S.addrTo="checkout";S.tab="home";S.screen="addr";render();return}
  if(!C.name.trim()||pn(C.phone).length<9||(anyDoor&&!String(C.addr||"").trim())){toast(T.coErr);return}
  if(anyShip&&(!String(C.branch||"").trim()||pn(C.brPhone).length<9||!String(C.district||"").trim()||!C.prov)){toast(T.brErr);return}
  /* one order per line; a cart's orders share a group id so each shop confirms its own items,
@@ -3958,7 +3961,7 @@ const placeOrder=guard(async()=>{
  S.coRef={};
  if(S.coCart){S.cart=[];saveCart();S.coCart=false}
  S.user={...S.user,name:S.user.name||C.name.trim()};LS.set("ss_user",JSON.stringify(S.user));
- rememberAddr({name:C.name.trim(),phone:C.phone.trim(),addr:String(C.addr||"").trim(),map:String(C.map||"").trim()});
+ if(needPt(L))rememberAddr({name:C.name.trim(),phone:C.phone.trim(),addr:String(C.addr||"").trim(),map:String(C.map||"").trim()});
  S.tab="orders";S.oid=L.length>1?null:first;S.screen="home";toast(T.orderSent);render();
 });
 

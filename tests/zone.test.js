@@ -60,8 +60,19 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   await p.evaluate(async () => { S.addrs = []; S.co = { name: 'Noy', phone: '020 7777 8888', addr: 'x', map: '' }; S.pid = 'p1'; S.tab = 'orders'; S.screen = 'checkout'; render(); const n = ST.orders.length; await placeOrder(); window.__n = n; });
   ok(await p.evaluate(() => ST.orders.length === window.__n && S.screen === 'addr' && S.tab === 'home' && !!document.querySelector('[data-x="ageonew"]')), 'no location → not sent, taken to pick a delivery point');
 
+  // a product the shop ships itself by carrier: no delivery point asked, order goes through without a location
+  await p.evaluate(async () => {
+    ST.shops.push({ id: 's2', name: 'Shop LP', prov: 'ຫຼວງພະບາງ', pickup: 'shop', map: '19.88560, 102.13480' });
+    ST.tp.push({ id: 'p2', name: 'Shirt', cat: 'clothes', shopId: 's2', shopName: 'Shop LP', variants: [{ label: 'M', price: 50000, stock: 9 }], imgs: [], active: true, createdAt: 2, stockAt: 1 });
+    mergeP(); S.addrs = []; S.co = {}; S.pid = 'p2'; S.vi = 0; S.tab = 'home'; S.screen = 'product'; render();
+  });
+  await p.click('[data-act="order"]'); await p.waitForTimeout(120);
+  ok(await p.evaluate(() => pMode(byId(ST.products, 'p2')) === 'shop') && !(await p.$('[data-x="apick"][data-id="checkout"]')) && !!(await p.$('[data-co="branch"]')), 'carrier-only product: checkout asks for the branch, not a delivery point');
+  await p.evaluate(async () => { Object.assign(S.co, { name: 'Noy', phone: '020 7777 8888', branch: 'ອານຸສິດ ສາຂາໂພນທັນ', brPhone: '020 5555 6666', district: 'ໄຊເສດຖາ', prov: 'ນະຄອນຫຼວງວຽງຈັນ' }); window.__n = ST.orders.length; await placeOrder(); await new Promise(r => setTimeout(r, 30)); });
+  ok(await p.evaluate(() => { const o = ST.orders[ST.orders.length - 1]; return ST.orders.length === window.__n + 1 && o.pid === 'p2' && !o.map && !!o.branch && S.addrs.length === 0; }), 'carrier-only order is sent without a location (and no empty address saved)');
+
   // edit and delete a point
-  await p.evaluate(() => { S.addrs = [{ name: 'Noy', phone: '020 7777 8888', addr: 'old', map: '17.97570, 102.63310' }]; S.af = null; render(); });
+  await p.evaluate(() => { S.addrs = [{ name: 'Noy', phone: '020 7777 8888', addr: 'old', map: '17.97570, 102.63310' }]; S.af = null; S.tab = 'home'; S.screen = 'addr'; render(); });
   await p.click('[data-x="aedit"][data-i="0"]'); await p.waitForTimeout(50);
   await p.fill('[data-af="addr"]', 'ບ້ານໃໝ່'); await p.click('[data-x="asave"]'); await p.waitForTimeout(80);
   ok(await p.evaluate(() => S.addrs.length === 1 && S.addrs[0].addr === 'ບ້ານໃໝ່'), 'edit updates the point (no duplicate)');
