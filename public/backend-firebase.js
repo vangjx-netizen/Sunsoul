@@ -2,7 +2,7 @@
 // index.html imports this file only on *.web.app / *.firebaseapp.com (and when testing with ?fb=1).
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signInAnonymously, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInAnonymously, connectAuthEmulator, GoogleAuthProvider, linkWithPopup, signInWithPopup, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { makeBackend } from "./backend-core.js";
@@ -19,6 +19,7 @@ export function start() {
   return makeBackend({
     initializeApp, getFirestore, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where,
     getAuth, onAuthStateChanged, signInAnonymously, getStorage, ref, uploadBytes,
+    GoogleAuthProvider, linkWithPopup, signInWithPopup, signInWithCredential, signOut,
     useEmulators: local ? useEmulators : null,
   }, local ? { ...firebaseConfig, projectId: "demo-sunsoul" } : firebaseConfig);
 }

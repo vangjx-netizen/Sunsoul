@@ -76,9 +76,37 @@ export function makeBackend(fb, config) {
     list: async () => ({ assets: [] }),
   };
 
+  // Sign in with Google: the Google account is linked to the visitor's current account, so the uid
+  // (profile, saved addresses, orders) stays the same. If that Google account already belongs to another
+  // uid (used on another phone before), the visitor switches to that uid and the page reloads.
+  const who = u => {
+    const g = (u.providerData || []).find(p => p.providerId === "google.com") || {};
+    return { uid: u.uid, google: !!g.providerId, email: u.email || g.email || "", name: u.displayName || g.displayName || "" };
+  };
+  const google = fb.GoogleAuthProvider && (async () => {
+    const u = auth.currentUser || await ready;
+    if (who(u).google) return { ...who(u), switched: false };
+    const provider = new fb.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    try {
+      const r = await fb.linkWithPopup(u, provider);
+      return { ...who(r.user), switched: false };
+    } catch (e) {
+      if (e && (e.code === "auth/credential-already-in-use" || e.code === "auth/email-already-in-use")) {
+        const cred = fb.GoogleAuthProvider.credentialFromError(e);
+        const r = cred ? await fb.signInWithCredential(auth, cred) : await fb.signInWithPopup(auth, provider);
+        return { ...who(r.user), switched: r.user.uid !== u.uid };
+      }
+      throw e;
+    }
+  });
+
   return {
     ready,
     blobUrl,
+    google: google || null,
+    account: async () => who(auth.currentUser || await ready),
+    signOut: fb.signOut ? () => fb.signOut(auth) : null,
     // tells the page to load only the viewer's own data (Claude lets everyone read everything)
     scoped: true,
     noStorage: !storage,

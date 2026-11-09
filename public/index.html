@@ -2796,7 +2796,7 @@ function subscribeScoped(){
 }
 /* what stock needs from an order — no personal data (see firestore.rules: orderPub) */
 const pubOf=o=>{const d={pid:o.pid,vlabel:o.vlabel||"",qty:+o.qty||1,status:o.status,createdAt:o.createdAt||null,shopId:o.shopId||""};if(o.shopAt!=null)d.shopAt=o.shopAt;return d};
-async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;if(b&&b.scoped)H.scoped=true;if(b&&b.noStorage)BLOBBAD=true;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
+async function use(n){try{if(window.SUNSOUL_BACKEND){const b=await window.SUNSOUL_BACKEND;if(b)H.be=b;if(b&&b.blobUrl)H.blobUrl=b.blobUrl;if(b&&b.scoped)H.scoped=true;if(b&&b.noStorage)BLOBBAD=true;return(b&&await b.use(n))||null}return(window.claude&&await window.claude.use(n))||null}catch(e){return null}}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
 function pic(p,i){
  const id=imgsOf(p)[i];
@@ -3828,8 +3828,30 @@ function qrSvg(seed){
 }
 
 /* ---- customer: login (test OTP) ---- */
+const canGoogle=()=>!!(H.be&&typeof H.be.google==="function");
+const gLogo=`<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
+/* after Google: one step for the name and the WhatsApp number shops and the team use to reach the person (no SMS) */
+function lgContactHtml(){
+ const L=S.lg;
+ return `<div class="lgw"><div class="logo" style="justify-content:center;font-size:20px">${logoSvg(36)}<span>Sunsoul</span></div>
+  <div><h1 class="big" style="font-size:22px">${T.gcT}</h1><p class="psub">${T.gcS}</p></div>
+  ${L.email?`<div class="note" style="text-align:left;background:var(--green-bg);color:var(--green)">${T.gcAs(esc(L.email))}</div>`:""}
+  <label class="fld">${T.suName}<input data-lg="name" autocomplete="name" value="${esc(L.name||"")}" placeholder="${T.suNamePh}"></label>
+  <label class="fld">${T.gcPhone}<span class="inp"><b style="font-family:var(--fn)">+856</b><input data-lg="phone" inputmode="numeric" autocomplete="tel" placeholder="20 5555 1234" value="${esc(L.phone||"")}"></span></label>
+  <button class="cta" data-x="lgcontact">${T.suGo}</button>${L.err?`<div class="err" role="alert">${esc(L.err)}</div>`:""}
+  <button class="lnk" style="align-self:center" data-x="lgskip">${T.browseFirst}</button></div>`;
+}
 function loginHtml(){
  const L=S.lg,isNew=L.mode==="new";
+ if(L.step==="contact")return lgContactHtml();
+ /* Google first (no SMS to fear); the phone + test code way stays behind a link while testing */
+ if(L.step==="phone"&&canGoogle()&&!L.phoneWay)return `<div class="lgw"><div class="logo" style="justify-content:center;font-size:20px">${logoSvg(36)}<span>Sunsoul</span></div>
+  <div><h1 class="big" style="font-size:22px">${isNew?T.suTitle:T.gTitle}</h1><p class="psub">${T.gSub}</p></div>
+  <button class="cta" data-x="lggoogle" style="background:#fff;color:#1f1f1f;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px" ${L.busy?"disabled":""}>${gLogo}<span>${L.busy?T.gWait:T.gBtn}</span></button>
+  <div class="note" style="text-align:left;font-size:13px">🔒 ${T.gSafe}</div>
+  ${L.err?`<div class="err" role="alert">${esc(L.err)}</div>`:""}
+  <p class="psub" style="text-align:center;margin:0"><button class="lnk" data-x="lgphoneway">${T.gPhoneWay}</button></p>
+  <button class="lnk" style="align-self:center" data-x="lgskip">${T.browseFirst}</button></div>`;
  if(L.step==="name")return `<div class="lgw"><div class="logo" style="justify-content:center;font-size:20px">${logoSvg(36)}<span>Sunsoul</span></div>
   <div><h1 class="big" style="font-size:22px">${T.suNameT}</h1><p class="psub">${T.suNameS}</p></div>
   <label class="fld">${T.suName}<input data-lg="name" autocomplete="name" value="${esc(L.name||"")}" placeholder="${T.suNamePh}"></label>
@@ -3858,6 +3880,33 @@ function lgOk(){
  if(!name){S.lg.err="";S.lg.step="name";render();return}
  finishLogin(name);
 }
+async function lgGoogle(){
+ if(!canGoogle()||S.lg.busy)return;
+ S.lg.busy=true;S.lg.err="";render();
+ try{
+  const a=await H.be.google();
+  /* that Google account was used on another phone: switch to it and reload so its own data loads */
+  if(a.switched){LS.set("ss_glogin",JSON.stringify({after:S.after||"",email:a.email,name:a.name}));location.reload();return}
+  googleDone(a);
+ }catch(e){
+  const c=(e&&e.code)||"";S.lg.busy=false;
+  S.lg.err=/popup-closed|cancelled-popup/.test(c)?"":/operation-not-allowed|unauthorized-domain|configuration-not-found/.test(c)?T.gOff:/popup-blocked|web-storage|disallowed|network/.test(c)?T.gInApp:T.gFail;
+  render();
+ }
+}
+/* signed in with Google: if the account already has a WhatsApp number it is done, otherwise ask for it once */
+function googleDone(a){
+ S.lg.busy=false;S.lg.email=a.email||"";
+ const had=S.user&&pn(S.user.phone).length>=9?S.user:null;
+ if(had){S.lg.phone=had.phone;S.lg.name=had.name||a.name||"";finishLogin(S.lg.name||a.name||"");return}
+ S.lg.name=S.lg.name||a.name||"";S.lg.step="contact";S.lg.err="";render();window.scrollTo(0,0);
+}
+function lgContact(){
+ const name=String(S.lg.name||"").trim();
+ if(!name){S.lg.err=T.suNeedName;render();return}
+ if(pn(S.lg.phone).length<9){S.lg.err=T.badPhone;render();return}
+ finishLogin(name);
+}
 /* a person without a name yet (first sign-in) is asked for it once */
 function lgName(){
  const name=String(S.lg.name||"").trim();if(!name){S.lg.err=T.suNeedName;render();return}
@@ -3865,7 +3914,7 @@ function lgName(){
 }
 function finishLogin(name){
  const fresh=S.lg.mode==="new"||S.lg.isNew;
- S.user={phone:S.lg.phone.trim(),name};LS.set("ss_user",JSON.stringify(S.user));LS.set("ss_name_"+pn(S.user.phone),name);saveProfile();
+ S.user={phone:S.lg.phone.trim(),name,...(S.lg.email?{email:S.lg.email}:{})};LS.set("ss_user",JSON.stringify(S.user));LS.set("ss_name_"+pn(S.user.phone),name);saveProfile();
  if(fresh)toast(T.suDone(name));
  const to=S.after||"home";S.after=null;
  if(to==="checkout")return startOrder();
@@ -4176,7 +4225,7 @@ function accountHtml(){
  const u=S.user,L=myOrders(),shop=ST.shops.find(s=>H.scoped?(!!H.uid&&s.ownerUid===H.uid):(!!u&&!!s.phone&&pn(s.phone)===pn(u.phone)));
  const arrow=ic("chev",18,2.2).replace("<svg",'<svg style="transform:rotate(-90deg)"');
  const addrs=S.addrs;
- return (u?`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="display:flex;flex-direction:column"><b style="font-size:18px">${esc(u.name||T.accName)}</b><span class="psub" style="font-family:var(--fn)">${esc(u.phone)}</span></div></div></div>
+ return (u?`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="display:flex;flex-direction:column"><b style="font-size:18px">${esc(u.name||T.accName)}</b><span class="psub" style="font-family:var(--fn)">💬 ${esc(u.phone)}</span>${u.email?`<span class="psub" style="font-size:13px">✓ Google · ${esc(u.email)}</span>`:""}</div></div></div>
  <h2 class="sec">${T.accOrders}</h2>${L.filter(o=>!ordDone(o)).length?`<div style="display:flex;flex-direction:column;gap:8px">${L.filter(o=>!ordDone(o)).slice(0,3).map(orderRow).join("")}</div>`:`<div class="empty">${T.ordNone}</div>`}
  <h2 class="sec">${T.accAddr}</h2>${addrs.length?`<div class="xt">${addrs.map((o,i)=>`<div><span><b>${esc(o.name)} · ${esc(o.phone)}</b><br><small class="psub">${esc(o.addr)}</small></span><span style="display:flex;gap:6px;align-items:center">${i===0?`<b>${T.accMain}</b>`:""}<button class="sbtn danger" data-x="rmaddr" data-i="${i}" aria-label="${T.rm}">${ic("x",14,2.4)}</button></span></div>`).join("")}</div>`:`<div class="psub">${T.accNoAddr}</div>`}
 <button class="arow2" data-x="polopen" style="width:100%;text-align:left;font-size:15px"><span>📋 ${T.accTerms}</span>${arrow}</button>${shop?"":`<button class="arow2" data-x="sellopen" style="width:100%;text-align:left;font-size:15px"><span>${T.accSell}<b>${T.accSellB}</b>${saMine()?` <span class="chip ${saChip(saMine())}">${esc(T.saSt[saState(saMine())])}</span>`:""}</span>${arrow}</button>`}`
@@ -4876,11 +4925,17 @@ app.addEventListener("click",e=>{
   case "lgback":S.lg.step="phone";S.lg.code="";S.lg.err="";render();break;
   case "lgok":lgOk();break;
   case "lgname":lgName();break;
+  case "lggoogle":lgGoogle();break;
+  case "lgcontact":lgContact();break;
+  case "lgphoneway":S.lg.phoneWay=true;S.lg.err="";render();break;
   case "lgmode":S.lg.mode=S.lg.mode==="new"?"login":"new";S.lg.err="";render();break;
   case "signup":S.after=S.tab==="account"?"account":"home";S.lg={step:"phone",mode:"new",name:"",phone:"",code:"",err:""};S.tab="home";S.screen="login";render();break;
   case "lgskip":S.after=null;S.screen="home";S.tab="home";render();break;
   case "theme":setTheme(id);rr();break;
-  case "logout":S.user=null;LS.del("ss_user");S.oid=null;saveProfile();rr();break;
+  /* a Google account just signs out: its profile (WhatsApp number, addresses) stays for the next Google sign-in,
+     and this phone starts again as a fresh visitor */
+  case "logout":{const g=!!(S.user&&S.user.email&&H.be&&H.be.signOut);S.user=null;LS.del("ss_user");S.oid=null;
+   if(g){LS.del("ss_addrs");Promise.resolve(H.be.signOut()).catch(()=>{}).then(()=>location.reload())}else{saveProfile();rr()}break}
   case "rmaddr":S.addrs.splice(+d.i,1);saveProfile();rr();break;
   case "place":placeOrder();break;
   case "gohome2":S.tab="home";S.screen="home";S.oid=null;render();break;
@@ -5074,14 +5129,18 @@ async function loadProfile(){
   if(!H.user||typeof H.user.id!=="function")return;
   H.uid=await H.user.id();const r=profRef();if(!r)return;
   const snap=await r.get();if(!snap.exists)return;const d=snap.data()||{};
-  if(d.phone&&!S.user){S.user={phone:d.phone,name:d.name||""};LS.set("ss_user",JSON.stringify(S.user))}
+  if(d.phone&&!S.user){S.user={phone:d.phone,name:d.name||"",...(d.email?{email:d.email}:{})};LS.set("ss_user",JSON.stringify(S.user))}
   if(Array.isArray(d.addrs)&&d.addrs.length){S.addrs=d.addrs;LS.set("ss_addrs",JSON.stringify(S.addrs))}
  }catch(e){}
+ /* back from a Google sign-in that switched to this person's earlier account: finish signing in */
+ try{const g=JSON.parse(LS.get("ss_glogin")||"null");LS.del("ss_glogin");
+  if(g){if(S.user&&pn(S.user.phone).length>=9){S.user={...S.user,email:S.user.email||g.email||""};LS.set("ss_user",JSON.stringify(S.user));saveProfile()}
+   else{S.lg={step:"contact",phone:"",code:"",err:"",name:g.name||"",email:g.email||""};S.after=g.after||null;S.screen="login";render()}}}catch(e){}
 }
 function saveProfile(){
  LS.set("ss_addrs",JSON.stringify(S.addrs));
  const r=profRef();if(!r)return;
- r.set({phone:S.user?S.user.phone:"",name:S.user?S.user.name||"":"",addrs:S.addrs,updatedAt:Date.now()}).catch(()=>{});
+ r.set({phone:S.user?S.user.phone:"",name:S.user?S.user.name||"":"",email:S.user&&S.user.email||"",addrs:S.addrs,updatedAt:Date.now()}).catch(()=>{});
 }
 /* newest first, no duplicates, at most 5 */
 function rememberAddr(a){
@@ -5267,6 +5326,11 @@ Object.assign(T,{adTitle:"ສົ່ງໄປທີ່ໃດ?",adTo:"ສົ່ງ
 Object.assign(T,{howT:"ຮັບເຄື່ອງແບບໃດ?",howDoor:"ສົ່ງຮອດເຮືອນ",howCarrier:"ຝາກຂົນສົ່ງ",
  howDoorS:"ທີມ Sunsoul ສົ່ງຮອດເຮືອນ (ໃນເຂດ) · ຄ່າສົ່ງຄິດຕາມໄລຍະທາງ",howOutS:"ຈຸດສົ່ງຢູ່ນອກເຂດ ຈຶ່ງຝາກຂົນສົ່ງໃຫ້ · ຫຼື ປ່ຽນຈຸດສົ່ງ",
  howCarrierS:"ທີມຝາກຂົນສົ່ງໄປສາຂາທີ່ເຈົ້າເລືອກ · ຈ່າຍຄ່າຂົນສົ່ງ ແລະ ຮັບເຄື່ອງທີ່ສາຂາ · ບໍ່ຕ້ອງໃສ່ຕຳແໜ່ງ"});
+Object.assign(T,{gTitle:"ເຂົ້າສູ່ລະບົບ",gSub:"ໃຊ້ບັນຊີ Google (Gmail) ຂອງເຈົ້າ · ກົດປຸ່ມດຽວ",gBtn:"ເຂົ້າສູ່ລະບົບດ້ວຍ Google",gWait:"ກຳລັງເປີດ Google…",
+ gSafe:"ປອດໄພກວ່າ: ບໍ່ມີລະຫັດ SMS · Sunsoul ຈະບໍ່ໂທ ຫຼື ສົ່ງຂໍ້ຄວາມຂໍລະຫັດຈາກເຈົ້າ · ບໍ່ເຫັນລະຫັດຜ່ານ Gmail ຂອງເຈົ້າ",
+ gPhoneWay:"ເຂົ້າດ້ວຍເບີໂທ (ຊ່ວງທົດສອບ)",gFail:"ເຂົ້າດ້ວຍ Google ບໍ່ສຳເລັດ · ລອງໃໝ່ອີກຄັ້ງ",gOff:"ທີມຍັງບໍ່ໄດ້ເປີດການເຂົ້າດ້ວຍ Google · ກະລຸນາແຈ້ງທີມ",
+ gInApp:"ເປີດ Google ບໍ່ໄດ້ໃນແອັບນີ້ · ຖ້າເປີດລິ້ງຈາກ Messenger ຫຼື Facebook ໃຫ້ກົດ ⋯ ແລ້ວເລືອກ “ເປີດໃນ Safari / Chrome”",
+ gcT:"ອີກຂັ້ນດຽວ",gcS:"ຮ້ານ ແລະ ທີມ Sunsoul ຈະຕິດຕໍ່ເຈົ້າທາງ WhatsApp ເບີນີ້ (ບໍ່ສົ່ງ SMS)",gcAs:e=>"✓ ເຂົ້າດ້ວຍ Google ແລ້ວ: "+e,gcPhone:"ເບີ WhatsApp"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
  suNeedName:"ກະລຸນາໃສ່ຊື່",suHave:"ມີບັນຊີແລ້ວ?",suToLogin:"ເຂົ້າສູ່ລະບົບ",suNone:"ຍັງບໍ່ມີບັນຊີ?",suToNew:"ສ້າງບັນຊີໃໝ່",
  suNameT:"ຍິນດີຕ້ອນຮັບສູ່ Sunsoul!",suNameS:"ບອກຊື່ຂອງເຈົ້າ ເພື່ອໃຊ້ຕອນສັ່ງຊື້ ແລະ ຕິດຕໍ່",suGo:"ເລີ່ມໃຊ້ງານ",suDone:n=>"ສ້າງບັນຊີສຳເລັດ · ຍິນດີຕ້ອນຮັບ "+n,
