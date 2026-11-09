@@ -64,6 +64,7 @@ h2.sec{margin:2px 0 0;font-size:16px;font-weight:700}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);padding:4px;border-radius:12px;background:var(--soft)}
 .seg button{height:42px;border:0;border-radius:9px;background:transparent;font-size:13px;font-weight:700;padding:0 4px}
 .seg button[aria-pressed=true]{background:var(--card)}
+.seg.how button[aria-pressed=true]{background:var(--accent);color:#fff}
 .seg.sm{padding:3px;border-radius:10px}.seg.sm button{height:40px;border-radius:8px;font-size:14px}
 .cta{height:56px;width:100%;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:18px;font-weight:700}
 .cta:hover:not(:disabled){background:var(--accent-h)}
@@ -3680,6 +3681,10 @@ const zoneDist=ll=>{const c=parseLL(DEL().zoneLL);return c&&ll?hav(c,ll):null};
 const inZone=ll=>{const d=zoneDist(ll);return d==null?null:d<=DEL().zoneKm};
 const custLL=()=>parseLL(S.co&&S.co.map)||(S.addrs&&S.addrs[0]&&parseLL(S.addrs[0].map))||null;
 const needPt=L=>L.some(l=>shopLocal(shopOf(l.p)));
+/* at checkout the customer chooses: door delivery (team, inside the zone) or carrier to a branch they pick up from */
+const coCarrier=()=>!!S.co&&S.co.how==="carrier";
+const lineDoor=p=>pMode(p)==="door"&&!coCarrier();
+const wantPt=L=>needPt(L)&&!coCarrier();
 const pMode=p=>shopLocal(shopOf(p))&&inZone(custLL())!==false?"door":"shop";
 const autoFee=o=>{if(dMode(o)!=="door")return 0;const k=autoKm(o);if(k==null)return null;const f=feeKm(k);return f>0?(feeMain(o)?f:0):null};
 const autoTotal=o=>{const f=autoFee(o);return f==null?null:curPrice(o)*(+o.qty||1)+f};
@@ -3882,7 +3887,7 @@ function shopHintHtml(){
 function startOrder(){
  S.tab="home";
  /* carrier orders: branch and phone are typed fresh every time, never carried over */
- Object.assign(S.co,{branch:"",brPhone:"",village:"",district:"",prov:""});
+ Object.assign(S.co,{branch:"",brPhone:"",village:"",district:"",prov:"",how:"door"});
  if(!S.user){S.after="checkout";S.lg={step:"phone",phone:"",code:"",err:""};S.screen="login";render();return}
  if(S.addrs.length&&!parseLL(S.co.map))useAddr(0);
  S.co.name=S.co.name||S.user.name||"";S.co.phone=S.co.phone||S.user.phone||"";S.screen="checkout";render();
@@ -3901,7 +3906,7 @@ function coLines(){
 /* one delivery fee per shop: items from the same shop travel together */
 function coSum(){
  const L=coLines();if(!L.length)return "";
- const ll=parseLL(S.co.map),kind=inZone(ll)===false?"carrier":"local",G={};
+ const ll=coCarrier()?null:parseLL(S.co.map),kind=coCarrier()||inZone(ll)===false?"carrier":"local",G={};
  L.forEach(l=>{const k=l.p.shopId||norm(l.p.shopName);(G[k]=G[k]||[]).push(l)});
  const many=Object.keys(G).length>1;let total=0,allFee=true,out="",needLoc=false;
  for(const g of Object.values(G)){
@@ -3920,11 +3925,15 @@ function coSum(){
 function checkoutHtml(){
  const C=S.co,L=coLines();
  if(!L.length)return `<div class="empty">${T.empty}</div>`;
- const anyDoor=L.some(l=>pMode(l.p)==="door"),anyShip=L.some(l=>pMode(l.p)!=="door");
- const ll=parseLL(C.map),dz=zoneDist(ll);
+ const anyDoor=L.some(l=>lineDoor(l.p)),anyShip=L.some(l=>!lineDoor(l.p));
+ const ll=parseLL(C.map),dz=zoneDist(ll),out=inZone(ll)===false;
  /* the delivery point is needed when an item comes from a shop the team collects from (the point decides
     door delivery or carrier); if every item is shipped by its own shop, only the branch is asked */
- return `${needPt(L)?`<section class="card" style="gap:6px;border:2px solid ${ll?"var(--line)":"var(--accent)"}"><span class="psub" style="font-size:12px">📍 ${T.adTo}</span>
+ return `${needPt(L)?`<div class="fld"><span>${T.howT}</span><div class="seg how">
+  <button type="button" data-x="cohow" data-k="door" aria-pressed="${!coCarrier()}">🚚 ${T.howDoor}</button>
+  <button type="button" data-x="cohow" data-k="carrier" aria-pressed="${coCarrier()}">📦 ${T.howCarrier}</button></div>
+  <small class="psub" style="font-weight:400">${coCarrier()?T.howCarrierS:out?T.howOutS:T.howDoorS}</small></div>`:""}
+ ${wantPt(L)?`<section class="card" style="gap:6px;border:2px solid ${ll?"var(--line)":"var(--accent)"}"><span class="psub" style="font-size:12px">📍 ${T.adTo}</span>
  ${ll?`<b>${esc(C.addr||"")}</b><span class="psub" style="font-size:13px">${esc(C.name||"")} · ${esc(C.phone||"")}</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${zoneBadge(C.map)}${dz!=null?`<small class="psub">${T.adFromCenter(Math.round(dz))}</small>`:""}</div>`
   :`<b>${T.adPick}</b><span class="psub" style="font-size:13px">${T.adPickS}</span>`}
  <button class="${ll?"sbtn":"cta"}" data-x="apick" data-id="checkout" style="${ll?"align-self:flex-start":""}">${ll?T.adChange:"📍 "+T.adPickBtn}</button></section>`:""}
@@ -3942,26 +3951,26 @@ function checkoutHtml(){
 const placeOrder=guard(async()=>{
  const L=coLines(),C=S.co;
  if(!L.length||L.some(l=>stockLeft(l.p,l.v)<l.qty)){toast(T.soldOut);return}
- const anyDoor=L.some(l=>pMode(l.p)==="door"),anyShip=L.some(l=>pMode(l.p)!=="door");
- if(needPt(L)&&!parseLL(C.map)){toast(T.adNeedLoc);S.addrTo="checkout";S.tab="home";S.screen="addr";render();return}
+ const anyDoor=L.some(l=>lineDoor(l.p)),anyShip=L.some(l=>!lineDoor(l.p));
+ if(wantPt(L)&&!parseLL(C.map)){toast(T.adNeedLoc);S.addrTo="checkout";S.tab="home";S.screen="addr";render();return}
  if(!C.name.trim()||pn(C.phone).length<9||(anyDoor&&!String(C.addr||"").trim())){toast(T.coErr);return}
  if(anyShip&&(!String(C.branch||"").trim()||pn(C.brPhone).length<9||!String(C.district||"").trim()||!C.prov)){toast(T.brErr);return}
  /* one order per line; a cart's orders share a group id so each shop confirms its own items,
     the delivery fee is charged once per shop, and the customer pays them with one QR */
  const now=Date.now(),R=RUL(),gid=L.length>1?newId("g"):"",ll=parseLL(C.map),kind="local";let first="";
  for(const [i,l] of L.entries()){
-  const id=newId("o");if(!first)first=id;const door=pMode(l.p)==="door";
+  const id=newId("o");if(!first)first=id;const door=lineDoor(l.p);
   await put("orders",id,{uid:H.uid||"",no:"SS-"+nextNo(),gid,pid:l.p.id,pname:l.p.name,vlabel:l.v.label,qty:l.qty,price:+l.v.price,kg:kgNum(l.p.weight),img:l.v.img||imgsOf(l.p)[0]||"",
    shopId:l.p.shopId||"",shopName:l.p.shopName||"",cat:l.p.cat||"",cust:{name:C.name.trim(),phone:C.phone.trim()},addr:door?String(C.addr||"").trim():branchText(C),map:door?String(C.map||"").trim():"",
    branch:door?null:{name:String(C.branch||"").trim(),phone:String(C.brPhone||"").trim(),village:String(C.village||"").trim(),district:String(C.district||"").trim(),prov:C.prov||""},
    acct:S.user?S.user.phone:"",refImg:(S.coRef[l.p.id]||{}).img||"",refNote:String((S.coRef[l.p.id]||{}).note||"").trim(),
-   fee:null,pay:"qr",ll:door?ll:null,kind:door?kind:(C.prov===CAP?"local":"carrier"),status:"await_shop",shopDeadline:now+R.shopReplyMin*60000,
+   fee:null,pay:"qr",ll:door?ll:null,kind:door?kind:shopLocal(shopOf(l.p))?"carrier":(C.prov===CAP?"local":"carrier"),status:"await_shop",shopDeadline:now+R.shopReplyMin*60000,
    createdAt:now+i,history:[{s:"await_shop",at:now,by:"customer"}]});
  }
  S.coRef={};
  if(S.coCart){S.cart=[];saveCart();S.coCart=false}
  S.user={...S.user,name:S.user.name||C.name.trim()};LS.set("ss_user",JSON.stringify(S.user));
- if(needPt(L))rememberAddr({name:C.name.trim(),phone:C.phone.trim(),addr:String(C.addr||"").trim(),map:String(C.map||"").trim()});
+ if(wantPt(L))rememberAddr({name:C.name.trim(),phone:C.phone.trim(),addr:String(C.addr||"").trim(),map:String(C.map||"").trim()});
  S.tab="orders";S.oid=L.length>1?null:first;S.screen="home";toast(T.orderSent);render();
 });
 
@@ -4903,6 +4912,7 @@ app.addEventListener("click",e=>{
   case "appealgo":caseAppeal(id);break;
   case "slippick":slipPick(id);break;
   case "slipsend":slipUp(id);break;
+  case "cohow":S.co.how=d.k==="carrier"?"carrier":"door";rr();break;
   case "catstog":S.catsOpen=!S.catsOpen;render(true);break;
   case "apick":S.addrTo=id||"home";S.af=null;S.tab="home";S.screen="addr";render();window.scrollTo(0,0);break;
   case "aback":addrBack();break;
@@ -5254,6 +5264,9 @@ Object.assign(T,{adTitle:"ສົ່ງໄປທີ່ໃດ?",adTo:"ສົ່ງ
  adZoneInfo:k=>"🚚 ສົ່ງຮອດເຮືອນ: ພາຍໃນ "+k+" ກມ ຈາກໃຈກາງນະຄອນຫຼວງ (ຮ້ານທີ່ທີມໄປຮັບ) · 📦 ນອກເຂດ: ຝາກຂົນສົ່ງໄປສາຂາໃກ້ເຈົ້າ",
  zT:"ເຂດສົ່ງຮອດເຮືອນ",zS:"ລັດສະໝີຈາກຈຸດກາງ (ເສັ້ນຊື່) · ນອກເຂດ = ຝາກຂົນສົ່ງ",zCenter:"ຈຸດກາງຂອງເຂດ",zCenterS:"(ພິກັດ ເຊັ່ນ ປະຕູໄຊ 17.97080, 102.61860)",
  zHere:"ໃຊ້ຕຳແໜ່ງຂອງຂ້ອຍເປັນຈຸດກາງ",zBadLL:"ພິກັດຈຸດກາງບໍ່ຖືກຕ້ອງ",zSaveHint:"ໄດ້ຕຳແໜ່ງແລ້ວ · ກົດບັນທຶກດ້ານລຸ່ມ"});
+Object.assign(T,{howT:"ຮັບເຄື່ອງແບບໃດ?",howDoor:"ສົ່ງຮອດເຮືອນ",howCarrier:"ຝາກຂົນສົ່ງ",
+ howDoorS:"ທີມ Sunsoul ສົ່ງຮອດເຮືອນ (ໃນເຂດ) · ຄ່າສົ່ງຄິດຕາມໄລຍະທາງ",howOutS:"ຈຸດສົ່ງຢູ່ນອກເຂດ ຈຶ່ງຝາກຂົນສົ່ງໃຫ້ · ຫຼື ປ່ຽນຈຸດສົ່ງ",
+ howCarrierS:"ທີມຝາກຂົນສົ່ງໄປສາຂາທີ່ເຈົ້າເລືອກ · ຈ່າຍຄ່າຂົນສົ່ງ ແລະ ຮັບເຄື່ອງທີ່ສາຂາ · ບໍ່ຕ້ອງໃສ່ຕຳແໜ່ງ"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
  suNeedName:"ກະລຸນາໃສ່ຊື່",suHave:"ມີບັນຊີແລ້ວ?",suToLogin:"ເຂົ້າສູ່ລະບົບ",suNone:"ຍັງບໍ່ມີບັນຊີ?",suToNew:"ສ້າງບັນຊີໃໝ່",
  suNameT:"ຍິນດີຕ້ອນຮັບສູ່ Sunsoul!",suNameS:"ບອກຊື່ຂອງເຈົ້າ ເພື່ອໃຊ້ຕອນສັ່ງຊື້ ແລະ ຕິດຕໍ່",suGo:"ເລີ່ມໃຊ້ງານ",suDone:n=>"ສ້າງບັນຊີສຳເລັດ · ຍິນດີຕ້ອນຮັບ "+n,

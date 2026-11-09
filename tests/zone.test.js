@@ -71,6 +71,15 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   await p.evaluate(async () => { Object.assign(S.co, { name: 'Noy', phone: '020 7777 8888', branch: 'ອານຸສິດ ສາຂາໂພນທັນ', brPhone: '020 5555 6666', district: 'ໄຊເສດຖາ', prov: 'ນະຄອນຫຼວງວຽງຈັນ' }); window.__n = ST.orders.length; await placeOrder(); await new Promise(r => setTimeout(r, 30)); });
   ok(await p.evaluate(() => { const o = ST.orders[ST.orders.length - 1]; return ST.orders.length === window.__n + 1 && o.pid === 'p2' && !o.map && !!o.branch && S.addrs.length === 0; }), 'carrier-only order is sent without a location (and no empty address saved)');
 
+  // a customer inside the capital who prefers carrier: first choice on checkout, no location needed
+  await p.evaluate(() => { S.addrs = [{ name: 'Noy', phone: '020 7777 8888', addr: 'ບ້ານໂພນທັນ', map: '17.97570, 102.63310' }]; S.co = {}; S.pid = 'p1'; S.vi = 0; S.tab = 'home'; S.screen = 'product'; render(); });
+  await p.click('[data-act="order"]'); await p.waitForTimeout(120);
+  ok(!!(await p.$('[data-x="cohow"][data-k="door"][aria-pressed="true"]')) && !!(await p.$('[data-x="apick"][data-id="checkout"]')) && !(await p.$('[data-co="branch"]')), 'checkout starts with the choice: door delivery selected, delivery point shown');
+  await p.click('[data-x="cohow"][data-k="carrier"]'); await p.waitForTimeout(80);
+  ok(!(await p.$('[data-x="apick"][data-id="checkout"]')) && !!(await p.$('[data-co="branch"]')) && (await p.textContent('#cosum')).includes(await p.evaluate(() => T.atBranch)), 'choosing carrier: no delivery point, branch form shown instead');
+  await p.evaluate(async () => { Object.assign(S.co, { map: '', name: 'Noy', phone: '020 7777 8888', branch: 'ອານຸສິດ ສາຂາໂພນທັນ', brPhone: '020 5555 6666', district: 'ໄຊເສດຖາ', prov: 'ນະຄອນຫຼວງວຽງຈັນ' }); window.__n = ST.orders.length; await placeOrder(); await new Promise(r => setTimeout(r, 30)); });
+  ok(await p.evaluate(() => { const o = ST.orders[ST.orders.length - 1]; return ST.orders.length === window.__n + 1 && o.pid === 'p1' && o.kind === 'carrier' && dMode(o) === 'team' && !o.map && !!o.branch; }), 'order sent without a location; team ships it by carrier to the branch');
+
   // edit and delete a point
   await p.evaluate(() => { S.addrs = [{ name: 'Noy', phone: '020 7777 8888', addr: 'old', map: '17.97570, 102.63310' }]; S.af = null; S.tab = 'home'; S.screen = 'addr'; render(); });
   await p.click('[data-x="aedit"][data-i="0"]'); await p.waitForTimeout(50);
