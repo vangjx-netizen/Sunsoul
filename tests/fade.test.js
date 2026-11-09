@@ -17,6 +17,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok(!(await faded('a')) && !(await faded('b')), 'in-stock products are not faded');
   await p.click('[data-xc="soff"][data-id="a"]'); await p.waitForTimeout(150);
   ok(await faded('a') && !(await faded('b')), 'switching one to out of stock fades only that one');
+  ok(await (await row('a')).evaluate(r => getComputedStyle(r.querySelector('.th')).opacity === '1'), 'its picture stays clear (only the text fades)');
   ok((await (await row('a')).evaluate(r => r.querySelector('label').textContent)).includes('ໝົດ'), 'its label now reads “out of stock”');
   await p.evaluate(() => render()); await p.waitForTimeout(50);
   ok(await faded('a'), 'still faded after the list is redrawn');
