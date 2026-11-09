@@ -2574,14 +2574,19 @@ document.documentElement.lang="lo";
    double-tap zoom is off via touch-action, and if a zoom still slips through the page snaps back to normal size. */
 (()=>{const c="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover",m0=document.querySelector('meta[name="viewport"]');
  let m=m0;if(m)m.setAttribute("content",c);else{m=document.createElement("meta");m.name="viewport";m.content=c;document.head.appendChild(m)}
- const opt={passive:false},stop=e=>{if(e.cancelable)e.preventDefault()};
- ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,opt));
- ["touchstart","touchmove"].forEach(t=>document.addEventListener(t,e=>{if(e.touches&&e.touches.length>1)stop(e)},opt));
+ /* ?dbg=1 shows a small zoom diagnostics box (to see on a real phone what iOS lets the page block) */
+ const Z={gs:0,gsc:0,t2:0,t2c:0,m2:0,m2c:0,nd:0,max:1},dbg=/[?&]dbg=1/.test(location.search);
+ const opt={passive:false},stop=(e,k)=>{Z[k]++;if(e.cancelable)Z[k+"c"]++;e.preventDefault()};
+ ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>stop(e,"gs"),opt));
+ document.addEventListener("touchstart",e=>{if(e.touches&&e.touches.length>1)stop(e,"t2")},opt);
+ document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)stop(e,"m2")},opt);
+ if(dbg)window.addEventListener("load",()=>{const d=document.createElement("div");d.style.cssText="position:fixed;left:4px;bottom:4px;z-index:99999;background:#000c;color:#0f0;font:11px/1.3 monospace;padding:4px 6px;border-radius:6px;pointer-events:none;white-space:pre";document.body.appendChild(d);
+  setInterval(()=>{const v=window.visualViewport,sc=v?v.scale:0;if(sc>Z.max)Z.max=sc;d.textContent="scale "+sc.toFixed(2)+" max "+Z.max.toFixed(2)+" nudge "+Z.nd+"\ngesture "+Z.gs+"/"+Z.gsc+" start2 "+Z.t2+"/"+Z.t2c+" move2 "+Z.m2+"/"+Z.m2c+"\n"+(navigator.standalone?"homescreen ":"safari ")+(navigator.userAgent.match(/OS [\d_]+/)||[""])[0]},200)});
  /* snap back: once all fingers are up, keep nudging iOS back to scale 1 until it is there.
     iOS keeps animating a pinch after release and ignores a repeated identical tag, so each try
     alternates between changing the tag and replacing it with a fresh one. */
  let tries=0,timer=0,down=0;const zoomed=()=>!!window.visualViewport&&visualViewport.scale>1.01;
- const nudge=()=>{timer=0;if(down||!zoomed()){tries=0;return}
+ const nudge=()=>{timer=0;if(down||!zoomed()){tries=0;return}Z.nd++;
   const alt="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=0,viewport-fit=cover";
   if(tries%2===0){m.setAttribute("content",alt);setTimeout(()=>m.setAttribute("content",c),60)}
   else{const n=document.createElement("meta");n.name="viewport";n.content=alt;m.replaceWith(n);m=n;setTimeout(()=>m.setAttribute("content",c),60)}
