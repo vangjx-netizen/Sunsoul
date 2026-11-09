@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{touch-action:manipulation;scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{touch-action:pan-x pan-y;scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Sunsoul</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,8 @@
 --accent:#F0884A;--accent-h:#FFA46C;--on-accent:#1C0F05;--green:#6CCBB5;--green-bg:#16312B;--blue:#9DBFEF;--blue-bg:#1B2A40;
 --amber-bg:#3A2F14;--amber-ink:#F2D58C;--amber-ink2:#F2B33D;--red-bg:#3D2318;--bad:#FF8A7E;--inv:#F2EFE8;--on-inv:#1C1B18;
 --hdr:#0C0B09;--on-hdr:#F2EFE8;--hdr-btn:#26241F;--hdr-sub:#B3AD9F;--off:#A29C8E;--hero1:#2A1A0A;--hero2:#3D2410;--hero-sub:#F2D58C;color-scheme:dark}
-*{box-sizing:border-box}
+*{box-sizing:border-box;touch-action:pan-x pan-y}
+html,body{overscroll-behavior-x:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--page);color:var(--ink);font-family:var(--f);line-height:1.5;font-size:15px}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -2568,11 +2569,20 @@ var qrcode = function() {
 </script>
 <script>
 document.documentElement.lang="lo";
-/* app-like: no pinch / double-tap zoom, and no iOS zoom when a text box is focused */
-(()=>{const c="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover",m=document.querySelector('meta[name="viewport"]');
- if(m)m.setAttribute("content",c);else{const n=document.createElement("meta");n.name="viewport";n.content=c;document.head.appendChild(n)}
- ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
- document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});})();
+/* app-like: no pinch / double-tap zoom, and no iOS zoom when a text box is focused.
+   iOS Safari ignores user-scalable=no, so two-finger touches are blocked from the first touch,
+   double-tap zoom is off via touch-action, and if a zoom still slips through the page snaps back to normal size. */
+(()=>{const c="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover",m0=document.querySelector('meta[name="viewport"]');
+ let m=m0;if(m)m.setAttribute("content",c);else{m=document.createElement("meta");m.name="viewport";m.content=c;document.head.appendChild(m)}
+ const opt={passive:false},stop=e=>{if(e.cancelable)e.preventDefault()};
+ ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,opt));
+ ["touchstart","touchmove"].forEach(t=>document.addEventListener(t,e=>{if(e.touches&&e.touches.length>1)stop(e)},opt));
+ /* snap back: re-applying the viewport tag makes iOS return to scale 1 */
+ let busy=0;const reset=()=>{const v=window.visualViewport;if(!v||v.scale<=1.01||busy)return;busy=1;
+  m.setAttribute("content","width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover");
+  setTimeout(()=>{m.setAttribute("content",c);busy=0},300)};
+ if(window.visualViewport){visualViewport.addEventListener("resize",()=>setTimeout(reset,250));visualViewport.addEventListener("scroll",()=>setTimeout(reset,250))}
+ document.addEventListener("touchend",e=>{if(!e.touches||!e.touches.length)setTimeout(reset,200)},{passive:true});})();
 /* Lao interface text — kept in one place so a native speaker can review it. */
 const T={
  qPh:"ຄົ້ນຫາ",bLabel:"ງົບຂອງເຈົ້າ (ບໍ່ລວມຄ່າສົ່ງ)",bPh:"ງົບທີ່ຕ້ອງການ",budgetWord:"ງົບ",kip:"ກີບ",
