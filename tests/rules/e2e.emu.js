@@ -122,6 +122,34 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   await buyer.evaluate(async () => { await put('orders', 'o9', { uid: H.uid, no: 'SS-9', pid: 'p9', pname: 'ສິນຄ້ານຳເຂົ້າ', vlabel: '—', qty: 1, price: 90000, shopId: 's9', shopName: 'ຮ້ານນຳເຂົ້າ', status: 'await_shop', acct: '2098798512', cust: { name: 'Noy', phone: '2098798512' }, createdAt: Date.now(), history: [] }); });
   ok(await until(() => stranger.evaluate(() => ST.orders.some(o => o.id === 'o9'))), 'owner: receives the new order for the linked shop');
 
+  // return case, through the real form, against the real rules
+  await admin(d => updateDoc(doc(d, 'orders/o1'), { status: 'delivered', deliveredAt: Date.now() }));
+  await admin(d => setDoc(doc(d, 'upimgs/r1'), { data: PX })); await admin(d => setDoc(doc(d, 'upimgs/r2'), { data: PX }));
+  ok(await until(() => buyer.evaluate(() => (byId(ST.orders, 'o1') || {}).status === 'delivered')), 'buyer: order delivered');
+  await buyer.evaluate(() => { S.oid = 'o1'; S.rt = { reason: '', note: '', imgs: [], video: null }; S.tab = 'home'; S.screen = 'return'; render(); });
+  await buyer.click('[data-x="rtreason"][data-k="damaged"]'); await buyer.click('[data-x="rtvid"][data-k="1"]');
+  await buyer.fill('[data-rt="rbank"]', 'BCEL'); await buyer.fill('[data-rt="racct"]', '0101999'); await buyer.fill('[data-rt="rname"]', 'NOY');
+  await buyer.evaluate(() => { S.rt.imgs = ['u:r1', 'u:r2']; rr(); });
+  await buyer.evaluate(() => { window.__toasts = []; const t0 = toast; window.toast = m => { window.__toasts.push(m); t0(m); }; });
+  await buyer.click('[data-x="rtsend"]');
+  const kase = await until(async () => !!(await admin(async d => { const s = await getDoc(doc(d, 'orders/o1')); return s.data().caseId; })), 10000);
+  ok(kase, 'buyer: return case sent with the real rules (' + (await buyer.evaluate(() => (window.__toasts || []).join(' | '))) + ')');
+  const cid = await admin(async d => (await getDoc(doc(d, 'orders/o1'))).data().caseId);
+  const cdoc = cid ? await admin(async d => (await getDoc(doc(d, 'cases/' + cid))).data()) : null;
+  ok(!!cdoc && cdoc.uid === buyerUid && cdoc.status === 'open' && cdoc.video === true && !('owner' in cdoc), 'case saved: buyer, open, with video, no decision');
+  ok(((await admin(async d => (await getDoc(doc(d, 'kyc/' + buyerUid))).data())) || {}).racct === '0101999', 'refund account saved privately under the buyer');
+  ok(await until(() => buyer.evaluate(() => !!document.querySelector('[data-x="vidwa"]'))), 'buyer: WhatsApp video button shows');
+  await buyer.evaluate(() => { ST.contact = { wa: '8562055556666' }; window.open = () => {}; });
+  await buyer.click('[data-x="vidwa"]');
+  ok(await until(async () => !!(await admin(async d => (await getDoc(doc(d, 'cases/' + cid))).data().vidSentAt))), 'buyer: “video sent on WhatsApp” saved with the real rules');
+  // "not received" on another delivered order
+  await buyer.evaluate(async () => { await put('orders', 'o2', { uid: H.uid, no: 'SS-2', pid: 'p1', pname: 'ໝໍ້ຫຸງເຂົ້າ', vlabel: '—', qty: 1, price: 250000, shopId: 's1', shopName: 'Kham', status: 'await_shop', acct: '2098798512', cust: { name: 'Noy', phone: '2098798512' }, createdAt: Date.now(), history: [] }); });
+  await admin(d => updateDoc(doc(d, 'orders/o2'), { status: 'delivered', deliveredAt: Date.now() }));
+  ok(await until(() => buyer.evaluate(() => (byId(ST.orders, 'o2') || {}).status === 'delivered')), 'buyer: second order delivered');
+  await buyer.evaluate(() => { S.oid = 'o2'; S.tab = 'orders'; S.screen = 'home'; render(); });
+  await buyer.click('[data-x="notrcv"]'); await buyer.click('[data-x="notrcv"]');
+  ok(await until(async () => !!(await admin(async d => (await getDoc(doc(d, 'orders/o2'))).data().caseId))), 'buyer: “not received” opens a case with the real rules');
+
   await browser.close(); await env.cleanup(); server.close();
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

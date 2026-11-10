@@ -4176,7 +4176,7 @@ const notReceived=guard(async id=>{
  const o=byId(ST.orders,id);if(!o||caseOf(o))return;
  if(S.confirm!=="nr"+id){S.confirm="nr"+id;rr();return}
  S.confirm="";const cid=newId("c"),no=nextCase();
- await put("cases",cid,{no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:"missing",note:"",imgs:[],status:"open",owner:"",createdAt:Date.now()});
+ await put("cases",cid,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:"missing",note:"",imgs:[],shipper:shipperOf(o),status:"open",createdAt:Date.now()});
  await setOrder(o,{caseId:cid},"customer");toast(T.rtGot+" · "+no);rr();
 });
 /* received = the customer confirmed, or the return window passed without a word */
@@ -4216,7 +4216,7 @@ const rtSend=guard(async()=>{
  const id=newId("c"),no=nextCase(),now=Date.now(),kid=saIdOf(S.user&&S.user.phone);
  const acct={rbank:R.rbank.trim(),racct:R.racct.trim(),rname:R.rname.trim(),rat:now};
  if(H.db){await H.db.doc("kyc/"+kid).update(acct).catch(()=>H.db.doc("kyc/"+kid).set(acct))}else ST.kyc[kid]={...(ST.kyc[kid]||{}),...acct};
- await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",owner:"",createdAt:now});
+ await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",createdAt:now});
  await setOrder(o,{caseId:id},"customer");
  S.screen="home";S.tab="orders";toast(T.rtGot+" · "+no);render();
 });
