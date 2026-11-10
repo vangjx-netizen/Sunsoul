@@ -121,7 +121,7 @@ service cloud.firestore {
         && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt']);
       allow update: if isTeam()
         || (signedIn() && resource.data.uid == me() && same('uid')
-            && (onlyChanged(['custSeenAt'])
+            && (onlyChanged(['custSeenAt']) || onlyChanged(['vidSentAt'])
                 || (resource.data.get('appeal', null) == null && onlyChanged(['appeal', 'status', 'log']) && newData().status == 'open')));
       allow delete: if isTeam();
     }

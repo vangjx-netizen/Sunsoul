@@ -23,13 +23,19 @@ ok(t.includes('ກໍລະນີນີ້ບໍ່ຮັບຄືນ')&&!(await
 await p.click('[data-x="rtreason"][data-k="damaged"]');await p.click('[data-x="rtvid"][data-k="0"]');await p.waitForTimeout(50);
 ok((await p.textContent('main')).includes('ບໍ່ມີວິດີໂອແກະກ່ອງ ບໍ່ສາມາດຮັບຄືນໄດ້')&&!(await p.$('[data-x="rtsend"]')),'no unboxing video: blocked');
 await p.click('[data-x="rtvid"][data-k="1"]');await p.waitForTimeout(50);
-await p.fill('[data-rt="vlink"]','https://drive.google.com/x');
+ok(!(await p.$('[data-rt="vlink"]'))&&(await p.textContent('main')).includes('WhatsApp'),'video: no link box, told to send it on WhatsApp after sending the case');
 await p.evaluate(()=>{S.rt.imgs=['u:a','u:b'];rr()});await p.click('[data-x="rtsend"]');await p.waitForTimeout(100);
 ok(await p.evaluate(()=>ST.cases.length)===0,'refund account required');
 await p.fill('[data-rt="rbank"]','BCEL');await p.fill('[data-rt="racct"]','0101999');await p.fill('[data-rt="rname"]','NOY');
 await p.click('[data-x="rtsend"]');await p.waitForTimeout(200);
 let c=await p.evaluate(()=>ST.cases[0]);
-ok(c&&c.video===true&&c.vlink.includes('drive')&&c.shipper==='shop'&&!c.racct,'case saved with video + shipper, bank not in the case');
+ok(c&&c.video===true&&c.shipper==='shop'&&!c.racct,'case saved with video + shipper, bank not in the case');
+await p.evaluate(()=>{ST.contact={wa:'8562055556666'};window.__wa=[];window.open=u=>{window.__wa.push(u)};S.oid='F';S.screen='home';S.tab='orders';render()});
+ok(!!(await p.$('[data-x="vidwa"]')),'open case shows “send video on WhatsApp”');
+await p.click('[data-x="vidwa"]');await p.waitForTimeout(150);
+const wa=await p.evaluate(()=>window.__wa[0]||'');
+ok(/wa\.me\/8562055556666/.test(wa)&&decodeURIComponent(wa).includes(c.no)&&decodeURIComponent(wa).includes('#'),'WhatsApp opens to the team with case and order number typed in');
+ok(await p.evaluate(id=>!!(ST.cases.find(x=>x.id===id)||{}).vidSentAt,c.id),'case notes that the customer opened WhatsApp');
 ok(await p.evaluate(k=>ST.kyc[k]&&ST.kyc[k].racct==='0101999',c.kycId),'refund account stored privately');
 // team: shop shipped itself → shop pays, Sunsoul option disabled
 await p.evaluate(id=>{S.canAdmin=true;S.tab='team';S.sub='cases';S.cid=id;render()},c.id);t=await p.textContent('main');

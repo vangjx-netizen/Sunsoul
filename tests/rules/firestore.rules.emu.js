@@ -109,6 +109,8 @@ const deny = (name, p) => check(name, p, false);
 
   // cases
   await allow('buyer opens a case', setDoc(doc(buyer, 'cases/c9'), { uid: 'buyer', status: 'open', reason: 'damaged' }));
+  await allow('buyer notes the video was sent on WhatsApp', updateDoc(doc(buyer, 'cases/c9'), { vidSentAt: 5 }));
+  await deny('…but cannot decide the case on the way', updateDoc(doc(buyer, 'cases/c9'), { vidSentAt: 6, owner: 'us' }));
   await deny('buyer cannot decide own case', setDoc(doc(buyer, 'cases/c8'), { uid: 'buyer', status: 'open', owner: 'us', refund: 999 }));
   await deny('stranger cannot read the case', getDoc(doc(stranger, 'cases/c1')));
   await deny('buyer cannot mark the refund as paid', updateDoc(doc(buyer, 'cases/c1'), { refundedAt: 1 }));
