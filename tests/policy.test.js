@@ -15,7 +15,7 @@ await p.click('[data-x="polopen"]');await p.waitForTimeout(100);let t=await p.te
 ok(t.includes('ກໍລະນີທີ່ບໍ່ຮັບຄືນ')&&t.includes('ປ່ຽນໃຈ')&&t.includes('ຮ້ານຝາກຂົນສົ່ງເອງ')&&t.includes('ວິດີໂອຕອນແກະກ່ອງ'),'policy page: accepted / not accepted / who pays / evidence');
 // unboxing reminder while shipping
 await p.evaluate(()=>{S.pol=false;S.tab='orders';S.oid='S';render()});
-ok((await p.textContent('main')).includes('ກ່ອນແກະກ່ອງ ເລີ່ມຖ່າຍວິດີໂອກ່ອນ'),'order on its way shows the unboxing-video reminder');
+ok(await p.evaluate(()=>dMode(byId(ST.orders,'S'))==='door')?(await p.textContent('main')).includes('ເປີດກວດຕໍ່ໜ້າທີມ'):(await p.textContent('main')).includes('ກ່ອນແກະກ່ອງ ເລີ່ມຖ່າຍວິດີໂອກ່ອນ'),'order on its way: door → check in front of the team; carrier → unboxing-video reminder');
 // return form
 await p.evaluate(()=>{S.oid='F';S.rt={reason:'',note:'',imgs:[],video:null};S.tab='home';S.screen='return';render()});
 await p.click('[data-x="rtreason"][data-k="mind"]');await p.waitForTimeout(50);t=await p.textContent('main');

@@ -117,13 +117,14 @@ service cloud.firestore {
     // ---- return / complaint cases ----
     match /cases/{id} {
       allow read: if isTeam() || (signedIn() && resource.data.uid == me()) || ownsShop(resource.data.shopId);
-      allow create: if signedIn() && newData().uid == me() && newData().status == 'open'
+      // the team opens a case when a customer refuses an item at the door
+      allow create: if isTeam() || signedIn() && newData().uid == me() && newData().status == 'open'
         && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt', 'remedy', 'exDoneAt', 'shopReadyAt', 'shopSeenAt', 'shopAskAt', 'retNeeded', 'retGotAt', 'retFee', 'retDeduct']);
       allow update: if isTeam()
         // the shop says the replacement is ready, or that it has read the decision
         || (ownsShop(resource.data.shopId) && (onlyChanged(['shopReadyAt']) || onlyChanged(['shopSeenAt']) || onlyChanged(['shopAskAt'])))
         || (signedIn() && resource.data.uid == me() && same('uid')
-            && (onlyChanged(['custSeenAt']) || onlyChanged(['vidSentAt'])
+            && (onlyChanged(['custSeenAt']) || onlyChanged(['vidSentAt']) || (onlyChanged(['kycId', 'acctAt']) && newData().kycId == me())
                 || (resource.data.get('retNeeded', false) == true && onlyChanged(['retSentAt', 'retCarrier', 'retNo']))
                 || (resource.data.get('appeal', null) == null && onlyChanged(['appeal', 'status', 'log']) && newData().status == 'open')));
       allow delete: if isTeam();

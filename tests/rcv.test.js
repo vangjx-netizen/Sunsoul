@@ -1,5 +1,5 @@
-// "Did you receive it?": door deliveries count as received after 12 hours without an answer, carrier orders after the
-// return window; reporting a problem stays open for the whole return window either way.
+// "Did you receive it?": door deliveries count as received after 12 hours without an answer (and problems can be
+// reported for 12 hours), carrier orders after the 3-day return window.
 const { chromium } = require('playwright'); const path = require('path');
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
 (async () => {
@@ -21,7 +21,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok(!!(await p.$('[data-x="received"]')) && t.includes('10 ຊົ່ວໂມງ'), 'door delivery 2 h ago: asks, “counts as received in 10 hours”');
   t = await view('d2');
   ok(await p.evaluate(() => rcvd(byId(ST.orders, 'd2'))) && !(await p.$('[data-x="received"]')), 'door delivery 13 h ago: counts as received');
-  ok(!!(await p.$('[data-x="report"]')), '…but a problem can still be reported (3-day return window)');
+  ok(!(await p.$('[data-x="report"]')), '…and the 12-hour report window for door delivery has closed');
+  await view('d1');
+  ok(!!(await p.$('[data-x="report"]')), 'door delivery 2 h ago: a problem can still be reported');
   t = await view('c1');
   ok(await p.evaluate(() => !rcvd(byId(ST.orders, 'c1'))) && !!(await p.$('[data-x="received"]')) && t.includes('3 ມື້'), 'carrier order 13 h ago: still asked, up to 3 days');
   await b.close(); console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
