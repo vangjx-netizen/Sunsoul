@@ -88,6 +88,9 @@ h2.sec{margin:2px 0 0;font-size:16px;font-weight:700}
 .nav button[aria-current=page]{color:var(--accent);border-top-color:var(--accent);font-weight:700}
 .pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
 .phn{position:absolute;right:3px;bottom:3px;background:#000a;color:#fff;font-size:11px;font-weight:700;border-radius:8px;padding:0 5px;line-height:16px}
+.cmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cmpc{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:12px;background:var(--soft);font-size:13px;min-width:0;overflow-wrap:anywhere}
+.cmpph{grid-template-columns:repeat(2,minmax(0,1fr))!important}.cmp3{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .bkp{margin-top:6px}.bkp .pill{height:32px;padding:0 12px;font-size:13px;font-weight:600}.bkp .pill[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
 .pill{height:36px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line2);background:var(--card);white-space:nowrap;font-size:14px;flex-shrink:0}
 .cnt{font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
@@ -4399,14 +4402,23 @@ function shopCasesHtml(){
   const st=c.status==="open"?"open":c.owner==="store"?(c.remedy==="exchange"?"ex":"refund"):"other";
   return `<section class="card" style="border:2px solid ${st==="open"?"var(--accent)":st==="other"?"var(--line)":"var(--bad)"}">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${T.caseNo} ${esc(c.no)} · #${esc(c.ono||"")}</b><span class="chip ${st==="open"?"a":st==="other"?"g":"r"}">${T.scChip[st]}</span></div>
-  <div class="arow" style="border:0;padding:0"><div class="th">${thumb(o.img,"th")}</div><div class="am"><b>${esc(c.pname||"")}</b><div>${esc(o.vlabel||"")}</div><div class="psub" style="font-size:12px">${esc(reason)}${c.want?" · "+T.scWant(c.want==="exchange"?T.wnEx:T.wnRefund):""}</div></div></div>
-  ${c.note?`<div class="psub">“${esc(c.note)}”</div>`:""}
-  ${c.imgs&&c.imgs.length?`<div class="photos">${c.imgs.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div>`:""}
-  <div class="note" style="text-align:left;font-size:13px">${T.scWhat[st]}${c.decisionNote?`<br>💬 “${esc(c.decisionNote)}”`:""}</div>
+  <div class="psub" style="font-size:13px">⚠ <b>${esc(reason)}</b>${c.want?" · "+T.scWant(c.want==="exchange"?T.wnEx:T.wnRefund):""}</div>
+  ${scCompareHtml(c,o)}
+  <div class="note" style="text-align:left;font-size:13px">${T.scWhat[st]}</div>
   ${st==="ex"?(c.shopReadyAt?`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.scReady}</div>`:`<button class="cta" data-x="scready" data-id="${esc(c.id)}">✓ ${T.scReadyBtn}</button>`):""}
   ${(S.scOpen||{})[c.id]?scDetailHtml(c,o,st):""}
   <div class="aa" style="justify-content:flex-start">${st==="refund"||st==="other"?`<button class="sbtn" data-x="scseen" data-id="${esc(c.id)}">${T.scSeen}</button>`:""}
    <button class="sbtn" data-x="scmore" data-id="${esc(c.id)}" aria-expanded="${!!(S.scOpen||{})[c.id]}">${T.scMore} ${(S.scOpen||{})[c.id]?"▴":"▾"}</button></div></section>`}).join("");
+}
+/* what the customer ordered next to what they say they got, the team's own photos, and where it went wrong */
+function scCompareHtml(c,o){
+ const ph=(ids,c3)=>`<div class="photos ${c3?"cmp3":"cmpph"}">${ids.filter(Boolean).map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div>`;
+ const team=[...(o.pickPhotos||[]),...(o.packPhotos||[])].filter(Boolean);
+ return `<div class="cmp">
+  <div class="cmpc"><b>🛒 ${T.cmpOrd}</b>${o.img?ph([o.img]):""}<span><b>${esc(c.pname||o.pname||"")}</b><br>${esc(o.vlabel||"")} × ${o.qty||1}</span>${refShow(o)}</div>
+  <div class="cmpc" style="border:1.5px solid var(--bad)"><b>📦 ${T.cmpGot}</b>${(c.imgs||[]).length?ph(c.imgs):`<span class="psub">${T.cmpNoPh}</span>`}${c.note?`<span>“${esc(c.note)}”</span>`:""}</div></div>
+  ${team.length?`<div class="cmpc"><b>📷 ${T.cmpTeam}</b>${ph(team,1)}</div>`:""}
+  ${c.decisionNote?`<div class="note" style="text-align:left;border-left:4px solid var(--bad)"><b>❗ ${T.cmpWhere}</b><br>${esc(c.decisionNote)}</div>`:c.status==="open"?`<div class="psub" style="font-size:12px">${T.cmpWait}</div>`:""}`;
 }
 function scDetailHtml(c,o,st){
  const R=RUL();
@@ -5452,7 +5464,8 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{scMore:"ລາຍລະອຽດ",scFiled:"ລູກຄ້າແຈ້ງ",scDecided:"ທີມຕັດສິນ",scVidTeam:"ສົ່ງໃຫ້ທີມທາງ WhatsApp",
+Object.assign(T,{cmpOrd:"ລູກຄ້າສັ່ງ",cmpGot:"ລູກຄ້າໄດ້ຮັບ",cmpNoPh:"ບໍ່ມີຮູບ",cmpTeam:"ຮູບທີ່ທີມຖ່າຍ ຕອນຮັບເຄື່ອງຈາກຮ້ານ",
+ cmpWhere:"ຈຸດທີ່ຜິດ (ທີມ Sunsoul)",cmpWait:"ທີມກຳລັງທຽບຮູບ · ຈະແຈ້ງຈຸດທີ່ຜິດໃຫ້ຮ້ານຮູ້",scMore:"ລາຍລະອຽດ",scFiled:"ລູກຄ້າແຈ້ງ",scDecided:"ທີມຕັດສິນ",scVidTeam:"ສົ່ງໃຫ້ທີມທາງ WhatsApp",
  scRulesT:"ກົດ: ເມື່ອໃດຮ້ານຕ້ອງຮັບຜິດຊອບ",
  scRules:d=>["ສົ່ງເຄື່ອງຜິດຈາກທີ່ລູກຄ້າສັ່ງ (ລຸ້ນ / ສີ / ໄຊສ໌)",
   "ທີມໄປຮັບເຄື່ອງ: ຖ້າຮູບທີ່ທີມຖ່າຍຕອນຮັບ / ແພັກ ສະແດງວ່າເຄື່ອງຜິດ ຫຼື ເສຍຫາຍຢູ່ແລ້ວ → ຮ້ານຮັບຜິດຊອບ · ຖ້າຮູບສະແດງວ່າເຄື່ອງດີ → Sunsoul ຮັບຜິດຊອບ",
@@ -5509,7 +5522,7 @@ Object.assign(T,{csNoOrder:"ອໍເດີຂອງເຄສນີ້ຖືກ�
  csCompare:"ທຽບຮູບທຸກຂັ້ນ",csRef:"ລາຍທີ່ລູກຄ້າເລືອກຕອນສັ່ງ",csPackPhotos:"ຮູບໃບຝາກຂົນສົ່ງ",csDelPhotos:"ຮູບຕອນສົ່ງຮອດ",csOrder:"ອໍເດີ ແລະ ການຈ່າຍເງິນ",csPaid:"ທີມຢືນຢັນຍອດ",
  csTimeline:"ປະຫວັດທຸກຂັ້ນຕອນ",csPeople:"ລູກຄ້າ ແລະ ຮ້ານ",csCust:"ລູກຄ້າ",csShop:"ຮ້ານ",
  csCustHist:(o,c)=>"ລູກຄ້ານີ້: ສັ່ງທັງໝົດ "+o+" ອໍເດີ · ແຈ້ງເຄສ "+c+" ຄັ້ງ",csShopHist:(d,c,st)=>"ຮ້ານນີ້: ສົ່ງສຳເລັດ "+d+" ອໍເດີ · ເຄສ "+c+" ຄັ້ງ · ຮ້ານຜິດ "+st+" ຄັ້ງ",
- csDecision:"ຕັດສິນ",csWhy:"ເຫດຜົນຂອງການຕັດສິນ",csWhyPh:"ເຊັ່ນ: ຮູບຕອນຮັບຈາກຮ້ານເປັນໄຊສ໌ M ແຕ່ລູກຄ້າສັ່ງ L",csNeedWhy:"ກະລຸນາຂຽນເຫດຜົນຂອງການຕັດສິນ",
+ csDecision:"ຕັດສິນ",csWhy:"ເຫດຜົນ / ຈຸດທີ່ຜິດ (ຮ້ານ ແລະ ລູກຄ້າຈະເຫັນ)",csWhyPh:"ເຊັ່ນ: ຮູບຕອນຮັບຈາກຮ້ານເປັນໄຊສ໌ M ແຕ່ລູກຄ້າສັ່ງ L",csNeedWhy:"ກະລຸນາຂຽນເຫດຜົນຂອງການຕັດສິນ",
  evOrder:"ລູກຄ້າສັ່ງຊື້",evShopOk:"ຮ້ານຢືນຢັນວ່າມີເຄື່ອງ",evSlip:"ລູກຄ້າສົ່ງສະລິບ",evPaid:"ທີມຢືນຢັນຍອດເງິນ",evPicked:"ທີມຮັບເຄື່ອງຈາກຮ້ານ",evShopShip:"ຮ້ານຝາກຂົນສົ່ງ",
  evDelivered:"ສົ່ງຮອດ",evReceived:"ລູກຄ້າຢືນຢັນໄດ້ຮັບ",evDeclined:"ຮ້ານແຈ້ງວ່າໝົດ",evCancelled:"ຍົກເລີກ",evCase:"ລູກຄ້າແຈ້ງເຄສ",evDecided:"ທີມຕັດສິນ",evReopen:"ເປີດເຄສຄືນ",
  byW:{customer:"ລູກຄ້າ",shop:"ຮ້ານ",team:"ທີມ",system:"ລະບົບ"}});

@@ -68,6 +68,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok(c2.remedy === 'refund' && c2.refund > 0 && await p.evaluate(() => forfeit(byId(ST.orders, 'o2'))), 'refund: customer refunded, shop not paid for that order');
   t = await shopView();
   ok(t.includes(await p.evaluate(() => T.scChip.refund)) && t.includes('ຮ້ານສົ່ງສີຜິດ'), 'shop: told it is responsible, with the team’s message');
+  ok(t.includes(await p.evaluate(() => T.cmpOrd)) && t.includes('ດຳ · M × 1') && t.includes(await p.evaluate(() => T.cmpGot)) && (await p.$$(`.cmpc [data-zoom="u:a"]`)).length === 1 && t.includes(await p.evaluate(() => T.cmpWhere)), 'shop: sees what was ordered next to what the customer got, and where it went wrong');
   await p.click(`[data-x="scmore"][data-id="${c2.id}"]`); await p.waitForTimeout(80);
   t = await p.textContent('main');
   ok(t.includes(await p.evaluate(() => T.scRulesT)) && t.includes('ຮ້ານຝາກຂົນສົ່ງເອງ'), 'shop: “details” shows the rules for when the shop is responsible');
