@@ -3287,15 +3287,16 @@ function idCard(){
  <div class="aa" style="justify-content:center"><button class="sbtn" data-x="copyid" style="min-height:34px">📋 ${T.ctCopy}</button>${u?`<a ${lnkBtn} href="${esc(u)}">💬 ${T.ctSendId}</a>`:""}</div></div>`;
 }
 function contactCfgHtml(){
- const C=ST.contact||{},D=S.ctDraft||(S.ctDraft={wa:C.wa||"",phone:C.phone||""});
+ const C=ST.contact||{},D=S.ctDraft||(S.ctDraft={wa:C.wa||"",phone:C.phone||"",retAddr:C.retAddr||""});
  return `<h2 class="sec">${T.ccT}</h2><section class="card">
  ${C.wa||C.phone?"":`<div class="note">${T.ccNone}</div>`}
  <label class="fld">${T.ccWa}<input data-ctf="wa" type="tel" value="${esc(D.wa)}" placeholder="020 xxxx xxxx" style="font-family:var(--fn)"></label>
  <label class="fld">${T.ccPhone}<input data-ctf="phone" type="tel" value="${esc(D.phone)}" placeholder="020 xxxx xxxx" style="font-family:var(--fn)"></label>
+ <label class="fld"><span>${T.retAddrL} <small>${T.retAddrS}</small></span><textarea data-ctf="retAddr" rows="3" placeholder="${T.retAddrPh}">${esc(D.retAddr||"")}</textarea></label>
  <button class="cta" data-x="ctsave">${T.ccSave}</button></section>`;
 }
 async function contactSave(){
- const D=S.ctDraft||{},doc={wa:String(D.wa||"").trim(),phone:String(D.phone||"").trim(),at:Date.now()};
+ const D=S.ctDraft||{},doc={wa:String(D.wa||"").trim(),phone:String(D.phone||"").trim(),retAddr:String(D.retAddr||"").trim(),at:Date.now()};
  if(doc.wa&&!pn(doc.wa))throw new Error(T.ccBad);
  if(H.db)await H.db.doc("settings/contact").set(doc);
  ST.contact=doc;S.ctDraft=null;render(true);toast(T.saved);
@@ -4238,7 +4239,7 @@ const RT_FIX=["wrong","damaged","photo","empty"];
 const canEx=(o,reason)=>!!o&&RT_FIX.includes(reason)&&dMode(o)!=="door";
 function wantHtml(R){
  return `<fieldset class="fs"><legend>${T.wnQ}</legend><div class="seg how"><button data-x="rtwant" data-k="refund" aria-pressed="${R.want==="refund"}">💰 ${T.wnRefund}</button><button data-x="rtwant" data-k="exchange" aria-pressed="${R.want==="exchange"}">🔄 ${T.wnEx}</button></div>
-  ${R.want==="exchange"?`<div class="note" style="text-align:left;font-size:13px">${T.wnExS}</div>`:R.want==="refund"?`<div class="psub" style="font-size:12px">${T.wnRefundS}</div>`:""}</fieldset>`;
+  ${R.want==="exchange"?`<div class="note" style="text-align:left;font-size:13px">${T.wnExS}</div>`:R.want==="refund"?`<div class="note" style="text-align:left;font-size:13px;border:2px solid var(--accent)">📦 <b>${T.retWarnT}</b><br>${T.retWarn}</div>`:""}</fieldset>`;
 }
 const rtSend=guard(async()=>{
  const o=byId(ST.orders,S.oid),R=S.rt;if(!o)return;
@@ -4363,7 +4364,7 @@ Object.assign(T,{spBtn:"+ ລົງສິນຄ້າໃໝ່",spNote:"ກົ�
 /* ---- state for the new screens ---- */
 Object.assign(S,{
  user:(()=>{try{return JSON.parse(LS.get("ss_user")||"null")}catch(e){return null}})(),
- lg:{step:"phone",phone:"",code:"",err:""},after:null,oid:null,rt:{reason:"size",note:"",imgs:[]},
+ lg:{step:"phone",phone:"",code:"",err:""},after:null,oid:null,rt:{reason:"size",note:"",imgs:[]},rtn:{},rg:{},
  ss:"orders",shopId:"",sp:null,cart:loadCart(),coCart:false,chk:{},pk:{},hd:{},nf:{},vq:0,cid:null
 });
 const rr=()=>render(true);
@@ -4404,7 +4405,7 @@ function shopCasesHtml(){
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${T.caseNo} ${esc(c.no)} · #${esc(c.ono||"")}</b><span class="chip ${st==="open"?"a":st==="other"?"g":"r"}">${T.scChip[st]}</span></div>
   <div class="psub" style="font-size:13px">⚠ <b>${esc(reason)}</b>${c.want?" · "+T.scWant(c.want==="exchange"?T.wnEx:T.wnRefund):""}</div>
   ${scCompareHtml(c,o)}
-  <div class="note" style="text-align:left;font-size:13px">${T.scWhat[st]}</div>
+  <div class="note" style="text-align:left;font-size:13px">${T.scWhat[st]}${c.retNeeded?`<br>📦 ${c.retShopAt?T.scRetShop:c.retGotAt?T.scRetGot:c.retSentAt?T.scRetSent:T.scRetWait}`:""}</div>
   ${st==="ex"?(c.shopReadyAt?`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.scReady}</div>`:`<button class="cta" data-x="scready" data-id="${esc(c.id)}">✓ ${T.scReadyBtn}</button>`):""}
   ${(S.scOpen||{})[c.id]?scDetailHtml(c,o,st):""}
   <div class="aa" style="justify-content:flex-start">${st==="refund"||st==="other"?`<button class="sbtn" data-x="scseen" data-id="${esc(c.id)}">${T.scSeen}</button>`:""}
@@ -4790,6 +4791,16 @@ function tRefundsHtml(){
   <div class="xt" style="border:0"><div><span>${T.sBank}</span><b>${esc(k.rbank||"—")}</b></div><div><span>${T.sAcc}</span><b style="font-family:var(--fn)">${esc(k.racct||"—")}</b></div><div><span>${T.saAccName}</span><b>${esc(k.rname||"—")}</b></div></div>
   <button class="cta" style="background:var(--green)" data-x="rfdone" data-id="${esc(c.id)}">✓ ${T.rfDone2}</button></section>`}).join("")}<h2 class="sec">${T.csTitle}</h2>`;
 }
+function retTeamHtml(c,o){
+ const G=S.rg[c.id]||{},due=dueOf(o);
+ return `<div class="note" style="text-align:left">📦 <b>${T.retTeamT}</b><br>${c.retSentAt?T.retSentT(esc(c.retCarrier||""),esc(c.retNo||""))+" · "+dm(c.retSentAt):T.retTeamWait}
+  ${c.retGotAt?`<br><b style="color:var(--green)">✓ ${T.retGotT(dm(c.retGotAt))}</b><br>${T.retCalc(fmt(due),fmt(c.retFee||0),fmt(c.retDeduct||0),fmt(c.refund||0))}${c.retWhy?`<br>“${esc(c.retWhy)}”`:""}`:""}</div>
+  ${c.retGotAt?(c.retShopAt?`<div class="psub" style="font-size:12px">✓ ${T.retShopDone(dm(c.retShopAt))}</div>`:`<button class="sbtn" data-x="retshop" data-id="${esc(c.id)}">${T.retShopBtn}</button>`)
+  :`<div class="two"><label class="fld">${T.retFeeL}<input data-rg="${esc(c.id)}:fee" inputmode="numeric" value="${esc(G.fee||"")}" placeholder="0"></label>
+   <label class="fld">${T.retDedL}<input data-rg="${esc(c.id)}:ded" inputmode="numeric" value="${esc(G.ded||"")}" placeholder="0"></label></div>
+   <label class="fld">${T.retWhyL}<input data-rg="${esc(c.id)}:why" value="${esc(G.why||"")}" placeholder="${T.retWhyPh}"></label>
+   <button class="cta" data-x="retgot" data-id="${esc(c.id)}">✓ ${T.retGotBtn}</button>`}`;
+}
 function tCasesHtml(){
  const L=[...ST.cases].sort((a,b)=>b.createdAt-a.createdAt);
  return tRefundsHtml()+(L.length?`<div style="display:flex;flex-direction:column;gap:10px">${L.map(c=>`<button class="orow" data-x="copen" data-id="${esc(c.id)}"><span><b>${esc(c.no)} · ${esc(c.pname)}</b><small>#${esc(c.ono)} · ${esc(c.shopName||"")} · ${esc((T.rtReasons.find(r=>r[0]===c.reason)||[])[1]||c.reason)}</small></span><span class="chip ${c.status==="open"?"a":"g"}">${esc(T.caseSt[c.status]||c.status)}</span></button>`).join("")}</div>`:`<div class="empty">${T.csNone}</div>`);
@@ -4860,7 +4871,7 @@ function tCaseHtml(){
  ${c.status==="open"&&ow==="none"?`<fieldset class="fs"><legend>${T.nwPick}</legend>${Object.keys(T.nwR).map(k=>`<label class="radio ${S.nf["cw"+c.id]===k?"on":""}"><input type="radio" name="nw" data-xc="cnowhy" data-id="${esc(c.id)}" data-k="${k}" ${S.nf["cw"+c.id]===k?"checked":""}><span><b>${typeof T.nwR[k]==="function"?T.nwR[k](RUL().returnDays):T.nwR[k]}</b></span></label>`).join("")}</fieldset>`:""}
  ${c.status==="open"?`<label class="fld"><span>${owNote(ow)}</span><textarea data-cnote="${esc(c.id)}" rows="3" placeholder="${T.csWhyPh}">${esc(S.nf["cn"+c.id]||"")}</textarea></label>
   <button class="cta" data-x="cdecide" data-id="${esc(c.id)}">${T.csDecide}</button>`
- :`<div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.csSaved}</b><br>${esc(T.csOut[c.owner]||"")}${c.remedy==="exchange"?" · "+T.rmExOut:""}${c.decisionNote?`<br>“${esc(c.decisionNote)}”`:""}${c.closedAt?`<br><small>${dm(c.closedAt)} ${hm(c.closedAt)}</small>`:""}</div>${c.remedy==="exchange"?`<div class="note" style="text-align:left">🔄 <b>${T.rmExT}</b><br>${c.shopReadyAt?"✓ "+T.rmShopReady(dm(c.shopReadyAt)+" "+hm(c.shopReadyAt)):T.rmShopWait}${c.exDoneAt?`<br><b style="color:var(--green)">✓ ${T.cuExDone} · ${dm(c.exDoneAt)}</b>`:""}</div>${c.exDoneAt?"":`<button class="cta" data-x="cexdone" data-id="${esc(c.id)}">✓ ${T.rmDoneBtn}</button>`}`:""}<button class="sbtn" data-x="creopen" data-id="${esc(c.id)}">${T.csReopen}</button>`}`;
+ :`<div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.csSaved}</b><br>${esc(T.csOut[c.owner]||"")}${c.remedy==="exchange"?" · "+T.rmExOut:""}${c.decisionNote?`<br>“${esc(c.decisionNote)}”`:""}${c.closedAt?`<br><small>${dm(c.closedAt)} ${hm(c.closedAt)}</small>`:""}</div>${c.retNeeded?retTeamHtml(c,o):""}${c.remedy==="exchange"?`<div class="note" style="text-align:left">🔄 <b>${T.rmExT}</b><br>${c.shopReadyAt?"✓ "+T.rmShopReady(dm(c.shopReadyAt)+" "+hm(c.shopReadyAt)):T.rmShopWait}${c.exDoneAt?`<br><b style="color:var(--green)">✓ ${T.cuExDone} · ${dm(c.exDoneAt)}</b>`:""}</div>${c.exDoneAt?"":`<button class="cta" data-x="cexdone" data-id="${esc(c.id)}">✓ ${T.rmDoneBtn}</button>`}`:""}<button class="sbtn" data-x="creopen" data-id="${esc(c.id)}">${T.csReopen}</button>`}`;
 }
 /* ---- return policy ----
    Accepted: wrong item, damaged, far from the listing, empty box / missing parts, never arrived.
@@ -4884,7 +4895,7 @@ function caseSuggest(c,o){
  return {owner:"",why:T.sgAsk};
 }
 const forfeit=o=>ST.cases.some(c=>c.oid===o.id&&c.status==="closed"&&c.owner==="store"&&c.remedy!=="exchange");
-const refundCases=()=>ST.cases.filter(c=>c.status==="closed"&&(c.owner==="store"||c.owner==="us")&&c.remedy!=="exchange"&&!c.refundedAt);
+const refundCases=()=>ST.cases.filter(c=>c.status==="closed"&&(c.owner==="store"||c.owner==="us")&&c.remedy!=="exchange"&&!c.refundedAt&&(!c.retNeeded||!!c.retGotAt));
 function policyHtml(){
  const R=RUL(),li=a=>`<ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">${a.map(x=>`<li>${x}</li>`).join("")}</ul>`;
  return `<button class="sbtn" data-x="polclose" style="align-self:flex-start">‹ ${T.back}</button>
@@ -4915,6 +4926,23 @@ const vidWa=guard(async id=>{
  window.open(u,"_blank","noopener");
  if(!c.vidSentAt)await put("cases",id,{...strip(c),vidSentAt:Date.now()});
 });
+/* carrier refunds: the customer sends the item back to Sunsoul (paid on arrival); the team checks it,
+   takes the return shipping (and any damage the customer caused) off, then refunds the rest */
+function retCustHtml(c){
+ const A=(ST.contact||{}).retAddr,D=S.rtn[c.id]||{};
+ if(c.retSentAt)return `📦 <b>${T.retSentT(esc(c.retCarrier||""),esc(c.retNo||""))}</b><br><small class="psub">${T.retWaitTeam}</small>`;
+ return `<b>📦 ${T.retStepT}</b><br><span style="font-size:13px">${T.retStepS}</span>
+  <div class="note" style="text-align:left;margin-top:6px">📍 <b>${T.retTo}</b><br>${A?esc(A).replace(/\n/g,"<br>"):T.retNoAddr}</div>
+  <div class="two" style="margin-top:6px"><label class="fld">${T.retCarrier}<input data-rtn="${esc(c.id)}:carrier" value="${esc(D.carrier||"")}" placeholder="${T.retCarrierPh}"></label>
+  <label class="fld">${T.retNo}<input data-rtn="${esc(c.id)}:no" value="${esc(D.no||"")}" style="font-family:var(--fn)"></label></div>
+  <button class="cta" data-x="retsent" data-id="${esc(c.id)}" style="margin-top:6px">${T.retSentBtn}</button>`;
+}
+const retSent=guard(async id=>{
+ const c=byId(ST.cases,id),D=S.rtn[id]||{};if(!c)return;
+ const carrier=String(D.carrier||"").trim(),no=String(D.no||"").trim();
+ if(!carrier||!no)throw new Error(T.retNeed);
+ await put("cases",id,{...strip(c),retSentAt:Date.now(),retCarrier:carrier,retNo:no});toast(T.retThanks);
+});
 function custCaseHtml(c,o){
  if(c.status==="open")return vidWaHtml(c)+`<section class="card"><b>${T.rtGot} · ${T.caseNo} ${esc(c.no)}</b><span class="psub">${esc(T.caseSt.open)}${c.appeal?" · "+T.apSent:""}</span><span class="psub" style="font-size:12px">${T.rtNext.join(" → ")}</span></section>`;
  const no=c.owner==="none",col=no?"var(--bad)":"var(--green)",amt=dueOf(o);
@@ -4922,7 +4950,7 @@ function custCaseHtml(c,o){
   <b style="font-size:18px;color:${col}">${no?"✕ "+T.cuNo:"✓ "+T.cuYes}</b>
   ${no&&c.noWhy?`<div><span class="psub" style="font-size:12px">${T.cuWhy}</span><br><b>${esc(nwText(c.noWhy))}</b></div>`:""}
   ${c.decisionNote?`<div class="note" style="text-align:left"><span class="psub" style="font-size:12px">${T.cuMsg}</span><br>“${esc(c.decisionNote)}”</div>`:""}
-  <div><span class="psub" style="font-size:12px">${T.cuNext}</span><br>${no?T.cuNextNo:c.remedy==="exchange"?(c.exDoneAt?`<b style="color:var(--green)">✓ ${T.cuExDone}</b> · ${dm(c.exDoneAt)}`:T.cuExWait):c.refundedAt?`<b style="color:var(--green)">✓ ${T.cuRefunded(fmt(c.refund||amt))}</b> · ${dm(c.refundedAt)}`:T.cuRefundWait(fmt(c.refund||amt))}</div>
+  <div><span class="psub" style="font-size:12px">${T.cuNext}</span><br>${no?T.cuNextNo:c.retNeeded&&!c.retGotAt?retCustHtml(c):c.retNeeded&&!c.refundedAt?`${T.cuRefundWait(fmt(c.refund||0))}<br><small class="psub">${T.retCalc(fmt(dueOf(o)),fmt(c.retFee||0),fmt(c.retDeduct||0),fmt(c.refund||0))}${c.retWhy?" · “"+esc(c.retWhy)+"”":""}</small>`:c.remedy==="exchange"?(c.exDoneAt?`<b style="color:var(--green)">✓ ${T.cuExDone}</b> · ${dm(c.exDoneAt)}`:T.cuExWait):c.refundedAt?`<b style="color:var(--green)">✓ ${T.cuRefunded(fmt(c.refund||amt))}</b> · ${dm(c.refundedAt)}`:T.cuRefundWait(fmt(c.refund||amt))}</div>
   ${no&&!c.appeal?(S.appeal===c.id?`<label class="fld"><span>${T.apAsk}</span><textarea data-apnote="${esc(c.id)}" rows="3" placeholder="${T.apPh}">${esc(S.nf["ap"+c.id]||"")}</textarea></label><button class="cta" data-x="appealgo" data-id="${esc(c.id)}">${T.apSend}</button>`
    :`<div class="aa"><button class="sbtn" data-x="appeal" data-id="${esc(c.id)}">${T.apBtn}</button><button class="sbtn" data-x="help">${T.help}</button></div>`):no?`<span class="psub" style="font-size:12px">${T.apUsed}</span>`:""}</section>`;
 }
@@ -5069,6 +5097,12 @@ app.addEventListener("click",e=>{
   case "slipsend":slipUp(id);break;
   case "cohow":S.co.how=d.k==="carrier"?"carrier":"door";rr();break;
   case "vidwa":vidWa(id);break;
+  case "retsent":retSent(id);break;
+  case "retgot":{const c=byId(ST.cases,id),G=S.rg[id]||{};if(!c)break;const o=byId(ST.orders,c.oid),fee=num(G.fee),ded=num(G.ded),why=String(G.why||"").trim();
+   if(ded>0&&!why){toast(T.retNeedWhy);break}
+   const refund=Math.max(0,(o?dueOf(o):c.refund||0)-fee-ded),now=Date.now();
+   caseSet(id,{retGotAt:now,retFee:fee,retDeduct:ded,retWhy:why,refund,log:[...(c.log||[]),{at:now,action:"returned",fee,ded,why,refund}]});delete S.rg[id];break}
+  case "retshop":{const c=byId(ST.cases,id);if(c)caseSet(id,{retShopAt:Date.now()});break}
   case "scmore":S.scOpen=S.scOpen||{};S.scOpen[id]=!S.scOpen[id];rr();break;
   case "scask":scAsk(id);break;
   case "pzoom":{const pr=byId(ST.products,id);if(pr)lightbox(pr,allImgs(pr),0);break}
@@ -5183,7 +5217,8 @@ app.addEventListener("click",e=>{
    if(owner==="us"&&o&&shipperOf(o)==="shop"){toast(T.sgUsBlocked);break}
    if(owner==="none"&&!noWhy){toast(T.nwNeed);break}
    if(!note){toast(T.csNeedWhy);break}
-   caseSet(id,{status:"closed",owner,noWhy,remedy,closedAt:now,decisionNote:note,refund:owner==="none"||!o||remedy==="exchange"?0:dueOf(o),log:[...(c.log||[]),{at:now,action:"closed",owner,note,noWhy,remedy}]});delete S.nf["cn"+id];delete S.nf["cw"+id];break}
+   const retNeeded=!!o&&owner!=="none"&&remedy==="refund"&&c.reason!=="missing"&&dMode(o)!=="door";
+   caseSet(id,{status:"closed",owner,noWhy,remedy,retNeeded,closedAt:now,decisionNote:note,refund:owner==="none"||!o||remedy==="exchange"?0:dueOf(o),log:[...(c.log||[]),{at:now,action:"closed",owner,note,noWhy,remedy}]});delete S.nf["cn"+id];delete S.nf["cw"+id];break}
   case "creopen":{const c=byId(ST.cases,id);caseSet(id,{status:"open",log:[...(c.log||[]),{at:Date.now(),action:"reopen"}]});break}
  }
 });
@@ -5216,6 +5251,8 @@ app.addEventListener("input",e=>{
  if(d.safnote!==undefined){(S.saf[d.safnote]||(S.saf[d.safnote]={}))["note"]=t.value;return}
  if(d.af!==undefined&&S.af){S.af[d.af]=t.value;if(d.af==="map")clearTimeout(S.afT),S.afT=setTimeout(()=>{if(parseLL(S.af&&S.af.map))rr()},600);return}
  if(d.ctf!==undefined){(S.ctDraft||(S.ctDraft={}))[d.ctf]=t.value;return}
+ if(d.rtn){const [id,f]=d.rtn.split(":");(S.rtn[id]=S.rtn[id]||{})[f]=t.value;return}
+ if(d.rg){const [id,f]=d.rg.split(":");(S.rg[id]=S.rg[id]||{})[f]=t.value;return}
  if(d.payf!==undefined){(S.payDraft||(S.payDraft={}))[d.payf]=t.value;return}
  if(d.apnote!==undefined){S.nf["ap"+d.apnote]=t.value;return}
  if(d.vamt!==undefined){S.vr.amt=t.value;return}
@@ -5380,7 +5417,7 @@ Object.assign(T,{polT:"ເງື່ອນໄຂການຄືນສິນຄ້
  polNoT:"ກໍລະນີທີ່ບໍ່ຮັບຄືນ",polNo:d=>["ປ່ຽນໃຈ ບໍ່ມັກ ຫຼື ສັ່ງຜິດໄຊສ໌ເອງ","ບໍ່ມີວິດີໂອຕອນແກະກ່ອງ","ແຈ້ງຫຼັງໄດ້ຮັບເຄື່ອງເກີນ "+d+" ມື້","ເຄື່ອງຖືກໃຊ້ແລ້ວ ຫຼື ເສຍຫາຍຈາກການໃຊ້","ຕຳໜິທີ່ຜູ້ຂາຍບອກໄວ້ໃນລາຍລະອຽດແລ້ວ"],
  polEvT:"ຫຼັກຖານທີ່ຕ້ອງມີ",polEv:d=>["<b>ວິດີໂອຕອນແກະກ່ອງ</b> ຖ່າຍຕໍ່ເນື່ອງ ຕັ້ງແຕ່ກ່ອງຍັງປິດ (ເຫັນໃບປະໜ້າ) ຈົນເຫັນສິນຄ້າ ບໍ່ຕັດຕໍ່","ຮູບກ່ອງກ່ອນແກະ ແລະ ຮູບບັນຫາ ຢ່າງໜ້ອຍ 2 ຮູບ","ແຈ້ງຜ່ານ Sunsoul ພາຍໃນ "+d+" ມື້ ຫຼັງໄດ້ຮັບເຄື່ອງ","ບໍ່ມີຫຼັກຖານ = ບໍ່ຮັບຄືນ ແລະ ບໍ່ຄືນເງິນ"],
  polWhoT:"ໃຜຮັບຜິດຊອບ",polWho:[["🚚 Sunsoul ໄປຮັບ ແລະ ສົ່ງເອງ","ທີມຖ່າຍຮູບເຄື່ອງຕອນຮັບຈາກຮ້ານ · ຖ້າຮູບສະແດງວ່າເຄື່ອງດີ ແລ້ວເສຍຫາຍ ຫຼື ເສຍ ລະຫວ່າງສົ່ງ → Sunsoul ຮັບຜິດຊອບ · ຖ້າຮູບສະແດງວ່າເຄື່ອງຜິດ ຫຼື ເສຍຫາຍຕັ້ງແຕ່ຮ້ານ → ຮ້ານຮັບຜິດຊອບ"],["📦 Sunsoul ແພັກ ແລ້ວຝາກຂົນສົ່ງ","ທີມເຫັນເຄື່ອງ ແລະ ຖ່າຍຮູບກ່ອນຝາກ → ໃຊ້ຫຼັກດຽວກັນ"],["🏪 ຮ້ານຝາກຂົນສົ່ງເອງ","Sunsoul ບໍ່ເຫັນເຄື່ອງ → ຮ້ານຮັບຜິດຊອບທັງໝົດ: ເສຍຫາຍລະຫວ່າງສົ່ງ, ບໍ່ຕົງປົກ, ກ່ອງເປົ່າ · ລູກຄ້າໄດ້ເງິນຄືນ ແລະ ຮ້ານບໍ່ໄດ້ເງິນອໍເດີນັ້ນ"]],
- polMoneyT:"ການຄືນເງິນ",polMoney:["ຄືນເງິນເຕັມຈຳນວນທີ່ຈ່າຍ ເຂົ້າບັນຊີທີ່ທ່ານແຈ້ງ","ໂອນພາຍໃນ 3 ມື້ເຮັດການ ຫຼັງທີມຕັດສິນ","ເງິນຂອງຮ້ານຍັງຢູ່ກັບ Sunsoul ຈົນພົ້ນກຳນົດຄືນ ທ່ານຈຶ່ງໄດ້ຮັບການຄຸ້ມຄອງ","ບໍ່ເຫັນດີກັບຜົນ? ຂໍໃຫ້ກວດຄືນໄດ້ 1 ຄັ້ງ"],
+ polMoneyT:"ການຄືນເງິນ",polMoney:["ຄືນເງິນເຕັມຈຳນວນທີ່ຈ່າຍ ເຂົ້າບັນຊີທີ່ທ່ານແຈ້ງ","ອໍເດີຝາກຂົນສົ່ງ: ສົ່ງເຄື່ອງຄືນມາ Sunsoul ກ່ອນ (ຈ່າຍຄ່າສົ່ງປາຍທາງ) · ທີມກວດເຄື່ອງ ແລ້ວຄືນເງິນ ຫັກຄ່າສົ່ງຄືນ · ຖ້າເຄື່ອງເສຍຫາຍຈາກການໃຊ້ ອາດຫັກເພີ່ມ","ໂອນພາຍໃນ 3 ມື້ເຮັດການ ຫຼັງທີມຕັດສິນ","ເງິນຂອງຮ້ານຍັງຢູ່ກັບ Sunsoul ຈົນພົ້ນກຳນົດຄືນ ທ່ານຈຶ່ງໄດ້ຮັບການຄຸ້ມຄອງ","ບໍ່ເຫັນດີກັບຜົນ? ຂໍໃຫ້ກວດຄືນໄດ້ 1 ຄັ້ງ"],
  ubT:"ກ່ອນແກະກ່ອງ ເລີ່ມຖ່າຍວິດີໂອກ່ອນ!",ubS:"ຖ່າຍຕໍ່ເນື່ອງ ຕັ້ງແຕ່ກ່ອງຍັງປິດ ໃຫ້ເຫັນໃບປະໜ້າ ຈົນເຫັນສິນຄ້າ · ບໍ່ມີວິດີໂອ = ບໍ່ຮັບຄືນ",coUnbox:"ຮັບເຄື່ອງແລ້ວ ຖ່າຍວິດີໂອຕອນແກະກ່ອງ ເພື່ອສິດຄືນສິນຄ້າ",
  rtChoose:"ເລືອກບັນຫາກ່ອນ",rtMindT:"ກໍລະນີນີ້ບໍ່ຮັບຄືນ",rtMindS:"ປ່ຽນໃຈ ບໍ່ມັກ ຫຼື ສັ່ງຜິດໄຊສ໌ເອງ ບໍ່ຢູ່ໃນເງື່ອນໄຂຄືນສິນຄ້າ · ລອງຕິດຕໍ່ຜູ້ຂາຍ ເພື່ອຂໍແລກ ຖ້າຜູ້ຂາຍຍິນດີ",
  rtVidQ:"ທ່ານມີວິດີໂອຕອນແກະກ່ອງບໍ? (ຕັ້ງແຕ່ກ່ອງຍັງປິດ)",rtVidYes:"ມີ",rtVidNo:"ບໍ່ມີ",
@@ -5464,7 +5501,18 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{cmpOrd:"ລູກຄ້າສັ່ງ",cmpGot:"ລູກຄ້າໄດ້ຮັບ",cmpNoPh:"ບໍ່ມີຮູບ",cmpTeam:"ຮູບທີ່ທີມຖ່າຍ ຕອນຮັບເຄື່ອງຈາກຮ້ານ",
+Object.assign(T,{retWarnT:"ຕ້ອງສົ່ງເຄື່ອງຄືນມາ Sunsoul ກ່ອນ",
+ retWarn:"ຖ້າທີມອະນຸມັດ ທ່ານສົ່ງເຄື່ອງຄືນມາ Sunsoul ທາງຂົນສົ່ງ (ຈ່າຍຄ່າສົ່ງປາຍທາງ) · ທີມກວດເຄື່ອງ ແລ້ວໂອນເງິນຄືນ <b>ຫັກຄ່າສົ່ງຄືນ</b> · ຖ້າເຄື່ອງເສຍຫາຍຈາກການໃຊ້ ອາດຫັກເພີ່ມ",
+ retStepT:"ສົ່ງເຄື່ອງຄືນມາ Sunsoul",retStepS:"ແພັກເຄື່ອງໃຫ້ຄົບ (ກ່ອງ, ອຸປະກອນ) ແລ້ວຝາກຂົນສົ່ງມາທີ່ຢູ່ລຸ່ມນີ້ ແບບ <b>ຈ່າຍຄ່າສົ່ງປາຍທາງ</b> · ທີມຈະກວດ ແລ້ວໂອນເງິນຄືນ ຫັກຄ່າສົ່ງຄືນ",
+ retTo:"ສົ່ງມາທີ່",retNoAddr:"ທີມຍັງບໍ່ໄດ້ຕັ້ງທີ່ຢູ່ · ກົດ “ມີບັນຫາ? ຕິດຕໍ່ Sunsoul” ເພື່ອຖາມທີ່ຢູ່",
+ retCarrier:"ຊື່ຂົນສົ່ງ",retCarrierPh:"ອານຸສິດ / HAL / ມີໄຊ",retNo:"ເລກໃບຝາກ",retSentBtn:"ສົ່ງແລ້ວ · ແຈ້ງເລກໃບຝາກ",retNeed:"ກະລຸນາໃສ່ຊື່ຂົນສົ່ງ ແລະ ເລກໃບຝາກ",retThanks:"ຂອບໃຈ · ທີມຈະກວດເມື່ອເຄື່ອງຮອດ",
+ retSentT:(c,n)=>"ສົ່ງຄືນແລ້ວ: "+c+" · ເລກ "+n,retWaitTeam:"ລໍທີມຮັບເຄື່ອງ ແລະ ກວດ · ຈາກນັ້ນໂອນເງິນຄືນ",
+ retCalc:(d,f,x,r)=>"ຍອດຈ່າຍ "+d+" − ຄ່າສົ່ງຄືນ "+f+(x!=="0"?" − ຫັກ "+x:"")+" = ຄືນ "+r+" ກີບ",
+ retTeamT:"ລູກຄ້າສົ່ງເຄື່ອງຄືນ (ຝາກຂົນສົ່ງ)",retTeamWait:"ລໍລູກຄ້າສົ່ງເຄື່ອງຄືນ · ຍັງບໍ່ໄດ້ແຈ້ງເລກໃບຝາກ",retGotT:t=>"ຮັບເຄື່ອງ ແລະ ກວດແລ້ວ "+t,
+ retFeeL:"ຄ່າສົ່ງຄືນທີ່ທີມຈ່າຍ (ກີບ)",retDedL:"ຫັກເພີ່ມ (ຖ້າເຄື່ອງເສຍຫາຍຈາກລູກຄ້າ)",retWhyL:"ເຫດຜົນທີ່ຫັກເພີ່ມ",retWhyPh:"ເຊັ່ນ: ມີຮອຍໃຊ້ງານ, ອຸປະກອນບໍ່ຄົບ",
+ retNeedWhy:"ກະລຸນາຂຽນເຫດຜົນທີ່ຫັກເພີ່ມ",retGotBtn:"ຮັບເຄື່ອງ ແລະ ກວດແລ້ວ · ຄິດເງິນຄືນ",retShopBtn:"ສົ່ງເຄື່ອງຄືນຮ້ານແລ້ວ",retShopDone:t=>"ສົ່ງເຄື່ອງຄືນຮ້ານແລ້ວ "+t,
+ retAddrL:"ທີ່ຢູ່ຮັບເຄື່ອງຄືນ",retAddrS:"(ລູກຄ້າຝາກຂົນສົ່ງມາບ່ອນນີ້)",retAddrPh:"ເຊັ່ນ: Sunsoul · ອານຸສິດ ສາຂາໂພນທັນ · ໂທ 020 xxxx xxxx",
+ scRetWait:"ລໍລູກຄ້າສົ່ງເຄື່ອງຄືນມາ Sunsoul",scRetSent:"ລູກຄ້າສົ່ງເຄື່ອງຄືນແລ້ວ · ລໍທີມຮັບ",scRetGot:"ທີມຮັບເຄື່ອງຄືນແລ້ວ · ຈະສົ່ງຕໍ່ໃຫ້ຮ້ານ",scRetShop:"ທີມສົ່ງເຄື່ອງຄືນໃຫ້ຮ້ານແລ້ວ",cmpOrd:"ລູກຄ້າສັ່ງ",cmpGot:"ລູກຄ້າໄດ້ຮັບ",cmpNoPh:"ບໍ່ມີຮູບ",cmpTeam:"ຮູບທີ່ທີມຖ່າຍ ຕອນຮັບເຄື່ອງຈາກຮ້ານ",
  cmpWhere:"ຈຸດທີ່ຜິດ (ທີມ Sunsoul)",cmpWait:"ທີມກຳລັງທຽບຮູບ · ຈະແຈ້ງຈຸດທີ່ຜິດໃຫ້ຮ້ານຮູ້",scMore:"ລາຍລະອຽດ",scFiled:"ລູກຄ້າແຈ້ງ",scDecided:"ທີມຕັດສິນ",scVidTeam:"ສົ່ງໃຫ້ທີມທາງ WhatsApp",
  scRulesT:"ກົດ: ເມື່ອໃດຮ້ານຕ້ອງຮັບຜິດຊອບ",
  scRules:d=>["ສົ່ງເຄື່ອງຜິດຈາກທີ່ລູກຄ້າສັ່ງ (ລຸ້ນ / ສີ / ໄຊສ໌)",

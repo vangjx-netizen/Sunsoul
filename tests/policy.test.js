@@ -53,7 +53,9 @@ ok(t.includes('ບໍ່ໂອນ')&&t.includes('SS-F'),'payouts: the order is m
 ok(await p.evaluate(()=>!forfeit(byId(ST.orders,'D'))&&forfeit(byId(ST.orders,'F'))),'only the shop-fault order is withheld');
 // refund list
 await p.evaluate(()=>{S.sub='cases';render()});t=await p.textContent('main');
-ok(t.includes('ຕ້ອງຄືນເງິນລູກຄ້າ')&&t.includes('0101999')&&t.includes('120,000'),'team refund to-do shows amount and customer account');
+ok(!t.includes('ຕ້ອງຄືນເງິນລູກຄ້າ'),'carrier order: no refund before the item is back');
+await p.evaluate(()=>{const c=ST.cases.find(x=>x.oid==='F');c.retSentAt=Date.now();c.retGotAt=Date.now();c.retFee=0;render()});t=await p.textContent('main');
+ok(t.includes('ຕ້ອງຄືນເງິນລູກຄ້າ')&&t.includes('0101999')&&t.includes('120,000'),'item back → team refund to-do shows amount and customer account');
 await p.click('[data-x="rfdone"]');await p.waitForTimeout(200);
 await p.evaluate(()=>{S.canAdmin=false;S.tab='orders';S.oid='F';render()});t=await p.textContent('main');
 ok(t.includes('ໂອນຄືນ 120,000 ກີບ ແລ້ວ'),'customer sees the refund done');
