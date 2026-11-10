@@ -3577,7 +3577,7 @@ Object.assign(T,{
  backBtn:"ກັບຄືນ",slipWord:"ສະລິບ"
 });
 Object.assign(ST,{orders:[],cases:[],shopOff:[],rules:null,locks:{},sellerApps:[],sellerDec:{},kyc:{},pub:[]});
-const RULES0={shopReplyMin:120,payMin:30,fixHours:24,returnDays:3,holdNewDays:7,carrierDays:5,maxPerRun:10};
+const RULES0={shopReplyMin:120,payMin:30,fixHours:24,returnDays:3,doorRcvHours:12,holdNewDays:7,carrierDays:5,maxPerRun:10};
 const RUL=()=>({...RULES0,...(ST.rules||{})});
 const DAY=86400000;
 let OFF=new Set();
@@ -4134,7 +4134,7 @@ function orderDetailHtml(o){
    :`<div class="note">🚚 ${T.rcvWaitTeam}</div>`;
  }else if(o.status==="delivered"){
   const c=caseOf(o),left=(o.deliveredAt||0)+R.returnDays*DAY-Date.now();
-  if(!c&&!rcvd(o))body+=`<section class="card" style="border:2px solid var(--green)"><b style="font-size:17px">${T.rcvQ}</b><span class="psub">${T.rcvAsk(Math.max(1,Math.ceil(left/DAY)))}</span>
+  if(!c&&!rcvd(o))body+=`<section class="card" style="border:2px solid var(--green)"><b style="font-size:17px">${T.rcvQ}</b><span class="psub">${(()=>{const w=(o.deliveredAt||0)+rcvWait(o)-Date.now();return T.rcvAsk(dMode(o)==="door"?T.hrs(Math.max(1,Math.ceil(w/3600000))):T.dys(Math.max(1,Math.ceil(w/DAY))))})()}</span>
    <button class="cta" style="background:var(--green)" data-x="received" data-id="${esc(o.id)}">✓ ${T.rcvBtn}</button>
    <button class="sbtn danger" data-x="notrcv" data-id="${esc(o.id)}">${S.confirm==="nr"+o.id?T.notRcvSure:T.notRcv}</button></section>`;
   else if(!c&&o.receivedAt)body+=`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.rcvAt(dm(o.receivedAt)+" "+hm(o.receivedAt))}</div>`;
@@ -4188,7 +4188,10 @@ const notReceived=guard(async id=>{
  await setOrder(o,{caseId:cid},"customer");toast(T.rtGot+" · "+no);rr();
 });
 /* received = the customer confirmed, or the return window passed without a word */
-const rcvd=o=>!!o.receivedAt||(o.status==="delivered"&&Date.now()>(o.deliveredAt||0)+RUL().returnDays*DAY);
+/* when an unanswered "did you receive it?" counts as yes: 12 hours after the team handed it over at the door
+   (the team saw it delivered), the full return window for carrier orders. Reporting a problem stays open for the return window. */
+const rcvWait=o=>dMode(o)==="door"?RUL().doorRcvHours*3600000:RUL().returnDays*DAY;
+const rcvd=o=>!!o.receivedAt||(o.status==="delivered"&&Date.now()>(o.deliveredAt||0)+rcvWait(o));
 const payPending=()=>myOrders().filter(o=>o.status==="await_pay"&&hasDue(o));
 const rcvPending=()=>myOrders().filter(o=>o.status==="delivered"&&!rcvd(o)&&!caseOf(o));
 
@@ -5275,7 +5278,7 @@ Object.assign(T,{savedAddr:"ທີ່ຢູ່ທີ່ບັນທຶກໄວ�
 function themeNow(){return LS.get("ss_theme")||"auto"}
 function setTheme(t){if(t==="auto"){LS.del("ss_theme");delete document.documentElement.dataset.theme}else{LS.set("ss_theme",t);document.documentElement.dataset.theme=t}}
 Object.assign(T,{stRcvWait:"ສົ່ງຮອດ · ລໍລູກຄ້າຢືນຢັນ",stRcvd:"ໄດ້ຮັບແລ້ວ ✓",
- rcvAsk:n=>"ທີມແຈ້ງວ່າສົ່ງຮອດແລ້ວ · ຖ້າໄດ້ຮັບແລ້ວ ກະລຸນາກົດຢືນຢັນ · ຖ້າບໍ່ກົດພາຍໃນ "+n+" ມື້ ລະບົບຖືວ່າໄດ້ຮັບແລ້ວ",
+ rcvAsk:n=>"ທີມແຈ້ງວ່າສົ່ງຮອດແລ້ວ · ຖ້າໄດ້ຮັບແລ້ວ ກະລຸນາກົດຢືນຢັນ · ຖ້າບໍ່ກົດພາຍໃນ "+n+" ລະບົບຖືວ່າໄດ້ຮັບແລ້ວ",hrs:n=>n+" ຊົ່ວໂມງ",dys:n=>n+" ມື້",
  notRcv:"ຍັງບໍ່ໄດ້ຮັບເຄື່ອງ",notRcvSure:"ກົດອີກຄັ້ງ: ແຈ້ງທີມວ່າຍັງບໍ່ໄດ້ຮັບ",rcvAt:t=>"ທ່ານຢືນຢັນວ່າໄດ້ຮັບແລ້ວ · "+t,
  rcvHome:n=>n+" ອໍເດີ ສົ່ງຮອດແລ້ວ · ຢືນຢັນວ່າໄດ້ຮັບ",rcvBtnShort:"ຢືນຢັນ"});
 /* "which one exactly?": for products with several designs in one listing, the customer points at a photo or sends their own */
