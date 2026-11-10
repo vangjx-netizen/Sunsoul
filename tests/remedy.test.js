@@ -9,9 +9,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   await p.goto('file://' + path.join(__dirname, '..', 'public', 'index.html')); await p.waitForTimeout(400);
   await p.evaluate(() => {
     S.user = { phone: '020 7777 8888', name: 'Noy' };
-    ST.shops.push({ id: 's1', name: 'Shop A', prov: 'ນະຄອນຫຼວງວຽງຈັນ', pickup: 'team', map: '17.97000, 102.61000' });
+    ST.shops.push({ id: 's1', name: 'Shop A', prov: 'ຫຼວງພະບາງ', pickup: 'shop', map: '19.88560, 102.13480' }, { id: 's2', name: 'City Shop', prov: 'ນະຄອນຫຼວງວຽງຈັນ', pickup: 'team', map: '17.97000, 102.61000' });
     const base = { pid: 'p1', pname: 'ເສື້ອ', vlabel: 'ດຳ · M', qty: 1, price: 100000, shopId: 's1', shopName: 'Shop A', kind: 'local', status: 'delivered', cust: { name: 'Noy', phone: '020 7777 8888' }, acct: '020 7777 8888', createdAt: Date.now() - 2 * 86400000, deliveredAt: Date.now() - 3600000, history: [] };
-    ST.orders.push({ ...base, id: 'o1', no: 'SS-1' }, { ...base, id: 'o2', no: 'SS-2' });
+    ST.orders.push({ ...base, id: 'o1', no: 'SS-1', kind: 'carrier' }, { ...base, id: 'o2', no: 'SS-2', kind: 'carrier' }, { ...base, id: 'o3', no: 'SS-3', shopId: 's2', shopName: 'City Shop' });
   });
   const custForm = async (oid, want) => {
     await p.evaluate(o => { S.shopId = null; S.oid = o; S.rt = { reason: '', note: '', imgs: [], video: null }; S.tab = 'home'; S.screen = 'return'; render(); }, oid);
@@ -27,7 +27,12 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
     await p.fill(`[data-cnote="${cid}"]`, 'ຮ້ານສົ່ງສີຜິດ'); await p.click(`[data-x="cdecide"][data-id="${cid}"]`); await p.waitForTimeout(120);
   };
 
-  // ---- exchange ----
+  // ---- home delivery in the city: refund only ----
+  await p.evaluate(() => { S.oid = 'o3'; S.rt = { reason: '', note: '', imgs: [], video: null }; S.tab = 'home'; S.screen = 'return'; render(); });
+  await p.click('[data-x="rtreason"][data-k="wrong"]'); await p.click('[data-x="rtvid"][data-k="1"]'); await p.waitForTimeout(50);
+  ok(await p.evaluate(() => dMode(byId(ST.orders, 'o3')) === 'door') && !(await p.$('[data-x="rtwant"]')) && !!(await p.$('[data-rt="racct"]')), 'home-delivery order: no exchange option, refund account asked');
+
+  // ---- exchange (order went by carrier) ----
   await custForm('o1', 'exchange');
   ok(!(await p.$('[data-rt="racct"]')) && (await p.textContent('main')).includes(await p.evaluate(() => T.wnExS)), 'exchange chosen: no bank fields, explains what happens');
   await p.evaluate(() => { S.rt.imgs = ['u:a', 'u:b']; rr(); }); await p.click('[data-x="rtsend"]'); await p.waitForTimeout(150);

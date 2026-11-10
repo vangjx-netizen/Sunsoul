@@ -127,7 +127,8 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   await admin(d => setDoc(doc(d, 'upimgs/r1'), { data: PX })); await admin(d => setDoc(doc(d, 'upimgs/r2'), { data: PX }));
   ok(await until(() => buyer.evaluate(() => (byId(ST.orders, 'o1') || {}).status === 'delivered')), 'buyer: order delivered');
   await buyer.evaluate(() => { S.oid = 'o1'; S.rt = { reason: '', note: '', imgs: [], video: null }; S.tab = 'home'; S.screen = 'return'; render(); });
-  await buyer.click('[data-x="rtreason"][data-k="damaged"]'); await buyer.click('[data-x="rtvid"][data-k="1"]'); await buyer.click('[data-x="rtwant"][data-k="refund"]');
+  await buyer.click('[data-x="rtreason"][data-k="damaged"]'); await buyer.click('[data-x="rtvid"][data-k="1"]');
+  ok(!(await buyer.$('[data-x="rtwant"]')), 'buyer: home-delivery order offers refund only (no exchange)');
   await buyer.fill('[data-rt="rbank"]', 'BCEL'); await buyer.fill('[data-rt="racct"]', '0101999'); await buyer.fill('[data-rt="rname"]', 'NOY');
   await buyer.evaluate(() => { S.rt.imgs = ['u:r1', 'u:r2']; rr(); });
   await buyer.evaluate(() => { window.__toasts = []; const t0 = toast; window.toast = m => { window.__toasts.push(m); t0(m); }; });

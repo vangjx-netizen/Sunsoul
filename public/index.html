@@ -4210,7 +4210,7 @@ function returnHtml(){
  return pick+`${needV?`<fieldset class="fs"><legend>${T.rtVidQ}</legend><div class="seg how"><button data-x="rtvid" data-k="1" aria-pressed="${R.video===true}">${T.rtVidYes}</button><button data-x="rtvid" data-k="0" aria-pressed="false">${T.rtVidNo}</button></div>
   ${R.video?`<div class="note" style="text-align:left;font-size:13px"><b>📹 ${T.vwT}</b><br>${T.vwStep1}<br>${T.vwStep2}</div>
   <button type="button" class="sbtn" data-x="vidpre" style="opacity:.55;border-style:dashed">📹 WhatsApp · ${T.vwLater}</button>`:""}</fieldset>`:""}
- ${(!needV||R.video)&&RT_FIX.includes(R.reason)?wantHtml(R):""}
+ ${(!needV||R.video)&&canEx(o,R.reason)?wantHtml(R):""}
  ${(!needV||R.video)&&R.want!=="exchange"?`<h2 class="sec">${T.rtRefT}</h2><div class="note">${T.rtRefS}</div>
  ${bankField('data-rt="rbank"',R.rbank||"",T.sBank)}<div><label class="fld">${T.sAcc}<input data-rt="racct" inputmode="numeric" value="${esc(R.racct||"")}"></label></div>
  <label class="fld">${T.saAccName}<input data-rt="rname" value="${esc(R.rname||"")}"></label>`:""}
@@ -4222,6 +4222,8 @@ function returnHtml(){
 }
 /* wrong / damaged / not as pictured / missing parts: the customer picks a refund or the correct item instead */
 const RT_FIX=["wrong","damaged","photo","empty"];
+/* exchange is offered only for orders that went by carrier (to a branch); home delivery is refunded */
+const canEx=(o,reason)=>!!o&&RT_FIX.includes(reason)&&dMode(o)!=="door";
 function wantHtml(R){
  return `<fieldset class="fs"><legend>${T.wnQ}</legend><div class="seg how"><button data-x="rtwant" data-k="refund" aria-pressed="${R.want==="refund"}">💰 ${T.wnRefund}</button><button data-x="rtwant" data-k="exchange" aria-pressed="${R.want==="exchange"}">🔄 ${T.wnEx}</button></div>
   ${R.want==="exchange"?`<div class="note" style="text-align:left;font-size:13px">${T.wnExS}</div>`:R.want==="refund"?`<div class="psub" style="font-size:12px">${T.wnRefundS}</div>`:""}</fieldset>`;
@@ -4232,12 +4234,13 @@ const rtSend=guard(async()=>{
  const needV=RT_VIDEO.includes(R.reason);
  if(needV&&R.video!==true){$("#rterr").textContent=T.rtNeedVid;return}
  if(R.imgs.length<2){$("#rterr").textContent=T.rtNeed2;return}
- if(RT_FIX.includes(R.reason)&&!R.want){$("#rterr").textContent=T.wantNeed;return}
+ if(!canEx(o,R.reason))R.want="refund";
+ if(canEx(o,R.reason)&&!R.want){$("#rterr").textContent=T.wantNeed;return}
  if(R.want!=="exchange"&&(!String(R.rbank||"").trim()||!String(R.racct||"").trim()||!String(R.rname||"").trim())){$("#rterr").textContent=T.rtNeedAcct;return}
  const id=newId("c"),no=nextCase(),now=Date.now(),kid=saIdOf(S.user&&S.user.phone);
  const acct={rbank:String(R.rbank||"").trim(),racct:String(R.racct||"").trim(),rname:String(R.rname||"").trim(),rat:now};
  if(R.want==="exchange"){}else if(H.db){await H.db.doc("kyc/"+kid).update(acct).catch(()=>H.db.doc("kyc/"+kid).set(acct))}else ST.kyc[kid]={...(ST.kyc[kid]||{}),...acct};
- await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,want:RT_FIX.includes(R.reason)?R.want:"refund",vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",createdAt:now});
+ await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,want:canEx(o,R.reason)?R.want:"refund",vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",createdAt:now});
  await setOrder(o,{caseId:id},"customer");
  S.screen="home";S.tab="orders";toast(T.rtGot+" · "+no);render();
 });
@@ -4811,7 +4814,7 @@ function tCaseHtml(){
   <div class="note" style="text-align:left">→ <b>${sg.owner?esc((T.csOwners.find(x=>x[0]===sg.owner)||[])[1]||""):"?"}</b><br><span style="font-size:13px">${esc(sg.why)}</span></div>
   ${c.reason!=="mind"?`<span class="psub" style="font-size:12px">${T.sgRefund(fmt(dueOf(o)))}</span>`:""}</section>
  <fieldset class="fs"><legend>${T.csOwner}</legend>${T.csOwners.map(([k,l,s2])=>`<label class="radio ${ow===k?"on":""}"><input type="radio" name="own" data-xc="cowner" data-id="${esc(c.id)}" data-k="${k}" ${ow===k?"checked":""} ${c.status==="closed"||(k==="us"&&o0&&shipperOf(o0)==="shop")?"disabled":""}><span><b>${l}</b><small>${s2}</small></span></label>`).join("")}</fieldset>
- ${c.status==="open"&&ow!=="none"&&c.reason!=="missing"?(()=>{const rm=S.nf["rm"+c.id]||c.want||"refund";return `<fieldset class="fs"><legend>${T.rmT}</legend><div class="seg how"><button data-x="cremedy" data-id="${esc(c.id)}" data-k="refund" aria-pressed="${rm==="refund"}">💰 ${T.wnRefund}</button><button data-x="cremedy" data-id="${esc(c.id)}" data-k="exchange" aria-pressed="${rm==="exchange"}">🔄 ${T.wnEx}</button></div></fieldset>`})():""}
+ ${c.status==="open"&&ow!=="none"&&canEx(o0,c.reason)?(()=>{const rm=S.nf["rm"+c.id]||c.want||"refund";return `<fieldset class="fs"><legend>${T.rmT}</legend><div class="seg how"><button data-x="cremedy" data-id="${esc(c.id)}" data-k="refund" aria-pressed="${rm==="refund"}">💰 ${T.wnRefund}</button><button data-x="cremedy" data-id="${esc(c.id)}" data-k="exchange" aria-pressed="${rm==="exchange"}">🔄 ${T.wnEx}</button></div></fieldset>`})():""}
  ${c.appeal?`<div class="note" style="border:2px solid var(--accent)"><b>${T.apT}</b><br>“${esc(c.appeal.note)}”<br><small>${dm(c.appeal.at)} ${hm(c.appeal.at)}</small></div>`:""}
  ${c.status==="open"&&ow==="none"?`<fieldset class="fs"><legend>${T.nwPick}</legend>${Object.keys(T.nwR).map(k=>`<label class="radio ${S.nf["cw"+c.id]===k?"on":""}"><input type="radio" name="nw" data-xc="cnowhy" data-id="${esc(c.id)}" data-k="${k}" ${S.nf["cw"+c.id]===k?"checked":""}><span><b>${typeof T.nwR[k]==="function"?T.nwR[k](RUL().returnDays):T.nwR[k]}</b></span></label>`).join("")}</fieldset>`:""}
  ${c.status==="open"?`<label class="fld"><span>${owNote(ow)}</span><textarea data-cnote="${esc(c.id)}" rows="3" placeholder="${T.csWhyPh}">${esc(S.nf["cn"+c.id]||"")}</textarea></label>
@@ -5132,7 +5135,7 @@ app.addEventListener("click",e=>{
   case "copen":S.cid=id;rr();window.scrollTo(0,0);break;
   case "cdecide":{const c=byId(ST.cases,id);const note=String(S.nf["cn"+id]||"").trim();
    const o=byId(ST.orders,c.oid),sg=caseSuggest(c,o),owner=S.nf["c"+id]||c.owner||sg.owner||"store",now=Date.now(),noWhy=owner==="none"?S.nf["cw"+id]||sg.noWhy||"":"";
-   const remedy=owner==="none"||c.reason==="missing"?"refund":(S.nf["rm"+id]||c.want||"refund");
+   const remedy=owner==="none"||!canEx(o,c.reason)?"refund":(S.nf["rm"+id]||c.want||"refund");
    if(owner==="us"&&o&&shipperOf(o)==="shop"){toast(T.sgUsBlocked);break}
    if(owner==="none"&&!noWhy){toast(T.nwNeed);break}
    if(!note){toast(T.csNeedWhy);break}
