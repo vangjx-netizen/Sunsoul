@@ -87,6 +87,7 @@ h2.sec{margin:2px 0 0;font-size:16px;font-weight:700}
 .nav button{border:0;border-top:3px solid transparent;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--off);font-size:13px;font-weight:600;padding:0 2px}
 .nav button[aria-current=page]{color:var(--accent);border-top-color:var(--accent);font-weight:700}
 .pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.bkp{margin-top:6px}.bkp .pill{height:32px;padding:0 12px;font-size:13px;font-weight:600}.bkp .pill[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
 .pill{height:36px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line2);background:var(--card);white-space:nowrap;font-size:14px;flex-shrink:0}
 .cnt{font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .cnt span:last-child{font-size:13px}
@@ -3081,7 +3082,7 @@ function shopFormHtml(){
  <label class="fld">${T.sProv}<select data-sf="prov">${PROVS.map(v=>`<option ${shopProv(D)===v?"selected":""}>${v}</option>`).join("")}</select><small>${T.sProvHint}</small></label>
  <label class="fld">${T.sMap}<input data-sf="map" value="${esc(D.map)}" placeholder="${T.sMapPh}" autocomplete="off"></label>
  <div class="fld"><span>${T.sPickup}</span>${[["team",T.pkTeam,T.pkTeamS],["self",T.pkSelf,T.pkSelfS]].map(([id,l,s])=>`<label class="radio ${D.pickup===id?"on":""}"><input type="radio" name="pk" data-pk="${id}" ${D.pickup===id?"checked":""}><span><b>${l}</b><small>${s}</small></span></label>`).join("")}</div>
- <div class="two"><label class="fld">${T.sBank}<input data-sf="bank" value="${esc(D.bank)}"></label><label class="fld">${T.sAcc}<input data-sf="account" inputmode="numeric" value="${esc(D.account)}"></label></div>
+ ${bankField('data-sf="bank"',D.bank||"",T.sBank)}<div><label class="fld">${T.sAcc}<input data-sf="account" inputmode="numeric" value="${esc(D.account)}"></label></div>
  <label class="agree"><input type="checkbox" data-sfver ${D.verified?"checked":""}><span><b>✓ ${T.vbMark}</b><br><small>${T.vbMarkS}</small></span></label>
  <label class="agree"><input type="checkbox" data-agree ${D.agreed?"checked":""}><span>${T.agree}</span></label>
  <div class="err" id="serr"></div>
@@ -3178,7 +3179,7 @@ function sellHtml(){
  <div class="two"><label class="fld">${T.saDistrict}<input data-sa="district" value="${esc(D.district)}"></label><label class="fld">${T.saVillage}<input data-sa="village" value="${esc(D.village)}"></label></div>
  ${saItemHtml(D)}
  <h2 class="sec">${T.saBankT}</h2><div class="note">${T.saPriv}</div>
- <div class="two"><label class="fld">${T.sBank}<input data-sa="bank" value="${esc(D.bank)}" placeholder="BCEL / LDB / JDB"></label><label class="fld">${T.sAcc}<input data-sa="account" inputmode="numeric" value="${esc(D.account)}"></label></div>
+ ${bankField('data-sa="bank"',D.bank||"",T.sBank)}<div><label class="fld">${T.sAcc}<input data-sa="account" inputmode="numeric" value="${esc(D.account)}"></label></div>
  <label class="fld">${T.saAccName}<input data-sa="accName" value="${esc(D.accName)}"><small>${T.saAccNameS}${first?"":" · "+T.saKeep}</small></label>
  <fieldset class="fs"><legend>${T.saRules}</legend><ul class="psub" style="margin:0;padding-left:20px;font-size:13px">${T.saRuleL.map(x=>`<li>${x}</li>`).join("")}</ul>
  <label class="ck"><input type="checkbox" data-xc="saagree" ${D.agree?"checked":""}><span>${T.saAgree}</span></label></fieldset>
@@ -3298,7 +3299,7 @@ function payCfgHtml(){
  <button class="sbtn" data-x="payqrup">📷 ${T.pcUp}</button>
  <label class="fld"><span>${T.pcText}</span><textarea data-payf="payload" rows="3" style="font-family:monospace;font-size:12px">${esc(D.payload)}</textarea></label>
  <label class="fld"><span>${T.payName}</span><input data-payf="name" value="${esc(D.name)}" placeholder="${T.pcNamePh}"></label>
- <label class="fld"><span>${T.payBank}</span><input data-payf="bank" value="${esc(D.bank)}" placeholder="BCEL / LDB / JDB ..."></label>
+ ${bankField('data-payf="bank"',D.bank||"",T.payBank)}
  <label class="fld"><span>${T.payAcct}</span><input data-payf="acct" inputmode="numeric" value="${esc(D.acct)}"></label>
  <button class="cta" data-x="paysave">${T.pcSave}</button></section>`;
 }
@@ -4186,6 +4187,17 @@ const payPending=()=>myOrders().filter(o=>o.status==="await_pay"&&hasDue(o));
 const rcvPending=()=>myOrders().filter(o=>o.status==="delivered"&&!rcvd(o)&&!caseOf(o));
 
 /* ---- customer: return / report a problem ---- */
+/* bank name: tap a common Lao bank or type any other */
+const BANKS=["BCEL","LDB","JDB","APB","LVB","ACLEDA","ST Bank","BIC","Indochina Bank","Phongsavanh"];
+function bankField(attr,v,label){
+ return `<div class="fld"><span>${label}</span><input ${attr} list="banklist" value="${esc(v)}" placeholder="${T.bkPh}" autocomplete="off">
+  <div class="pills bkp" role="group" aria-label="${label}">${BANKS.map(b=>`<button type="button" class="pill" data-x="bankpick" data-v="${esc(b)}" aria-pressed="${norm(v)===norm(b)}">${esc(b)}</button>`).join("")}</div></div>`;
+}
+function bankPick(btn){
+ const f=btn.closest(".fld"),i=f&&f.querySelector("input");if(!i)return;
+ i.value=btn.dataset.v;i.dispatchEvent(new Event("input",{bubbles:true}));
+ f.querySelectorAll("[data-x=bankpick]").forEach(x=>x.setAttribute("aria-pressed",String(x===btn)));
+}
 function returnHtml(){
  const o=byId(ST.orders,S.oid),R=S.rt;if(!o)return `<div class="empty">${T.loading}</div>`;
  const pick=`<fieldset class="fs"><legend>${T.rtWhat}</legend><div class="pills">${T.rtPick.map(k=>`<button class="pill" data-x="rtreason" data-k="${k}" aria-pressed="${R.reason===k}">${(T.rtReasons.find(r=>r[0]===k)||[])[1]}</button>`).join("")}</div></fieldset>`;
@@ -4200,7 +4212,7 @@ function returnHtml(){
   <button type="button" class="sbtn" data-x="vidpre" style="opacity:.55;border-style:dashed">📹 WhatsApp · ${T.vwLater}</button>`:""}</fieldset>`:""}
  ${(!needV||R.video)&&RT_FIX.includes(R.reason)?wantHtml(R):""}
  ${(!needV||R.video)&&R.want!=="exchange"?`<h2 class="sec">${T.rtRefT}</h2><div class="note">${T.rtRefS}</div>
- <div class="two"><label class="fld">${T.sBank}<input data-rt="rbank" value="${esc(R.rbank||"")}" placeholder="BCEL / LDB / JDB"></label><label class="fld">${T.sAcc}<input data-rt="racct" inputmode="numeric" value="${esc(R.racct||"")}"></label></div>
+ ${bankField('data-rt="rbank"',R.rbank||"",T.sBank)}<div><label class="fld">${T.sAcc}<input data-rt="racct" inputmode="numeric" value="${esc(R.racct||"")}"></label></div>
  <label class="fld">${T.saAccName}<input data-rt="rname" value="${esc(R.rname||"")}"></label>`:""}
  <div class="fld"><span>${T.rtPhotos} <small>${T.rtPhotosHint}</small></span><div class="photos">${R.imgs.map((id,i)=>`<div class="pt"><img src="${imgSrc(id)}" alt=""><button class="x" data-x="rtrm" data-i="${i}" aria-label="${T.rm}">${ic("x",14,2.6)}</button></div>`).join("")}
  <button class="addph" data-x="rtadd" aria-label="${T.addPh}">${ic("plus",22,2.2)}</button></div></div>
@@ -5013,6 +5025,7 @@ app.addEventListener("click",e=>{
   case "slipsend":slipUp(id);break;
   case "cohow":S.co.how=d.k==="carrier"?"carrier":"door";rr();break;
   case "vidwa":vidWa(id);break;
+  case "bankpick":bankPick(t);break;
   case "rtwant":S.rt.want=d.k==="exchange"?"exchange":"refund";rr();break;
   case "cremedy":S.nf["rm"+id]=d.k==="exchange"?"exchange":"refund";rr();break;
   case "cexdone":{const c=byId(ST.cases,id);if(c)caseSet(id,{exDoneAt:Date.now(),log:[...(c.log||[]),{at:Date.now(),action:"exchanged"}]});break}
@@ -5404,6 +5417,7 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
+Object.assign(T,{bkPh:"ເລືອກດ້ານລຸ່ມ ຫຼື ພິມຊື່ທະນາຄານ"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
  suNeedName:"ກະລຸນາໃສ່ຊື່",suHave:"ມີບັນຊີແລ້ວ?",suToLogin:"ເຂົ້າສູ່ລະບົບ",suNone:"ຍັງບໍ່ມີບັນຊີ?",suToNew:"ສ້າງບັນຊີໃໝ່",
  suNameT:"ຍິນດີຕ້ອນຮັບສູ່ Sunsoul!",suNameS:"ບອກຊື່ຂອງເຈົ້າ ເພື່ອໃຊ້ຕອນສັ່ງຊື້ ແລະ ຕິດຕໍ່",suGo:"ເລີ່ມໃຊ້ງານ",suDone:n=>"ສ້າງບັນຊີສຳເລັດ · ຍິນດີຕ້ອນຮັບ "+n,
@@ -5463,6 +5477,7 @@ Object.assign(T,{ordNoActive:"ບໍ່ມີອໍເດີທີ່ກຳລ�
  payHome:n=>n+" ອໍເດີ ຮ້ານຢືນຢັນແລ້ວ · ລໍທ່ານຈ່າຍເງິນ",payBtnShort:"ຈ່າຍເງິນ",refT:"ລາຍ / ແບບທີ່ຕ້ອງການ",refOpt:"(ບໍ່ບັງຄັບ)",refHint:"ແຕະຮູບລາຍທີ່ຕ້ອງການ ຫຼື ອັບໂຫຼດຮູບ / ແຄັບໜ້າຈໍເອງ · ຮ້ານຈະເຫັນຮູບນີ້",refPick:"ເລືອກລາຍນີ້",refUp:"ຮູບຂອງຂ້ອຍ",
  refNotePh:"ໝາຍເຫດ ເຊັ່ນ: ສີດຳ ລາຍທາງ ຕົວທີ 2",refShopT:"📌 ລູກຄ້າຕ້ອງການລາຍນີ້"});
 Object.assign(T,{thTitle:"ໂໝດສີ",thLight:"ສະເຫວາງ",thDark:"ມືດ",thAuto:"ຕາມເຄື່ອງ"});
+document.body.insertAdjacentHTML("beforeend",`<datalist id="banklist">${BANKS.map(b=>`<option value="${b}"></option>`).join("")}</datalist>`);
 setTheme(themeNow());
 render();
 (async()=>{
