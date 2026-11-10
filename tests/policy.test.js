@@ -23,7 +23,8 @@ ok(t.includes('ກໍລະນີນີ້ບໍ່ຮັບຄືນ')&&!(await
 await p.click('[data-x="rtreason"][data-k="damaged"]');await p.click('[data-x="rtvid"][data-k="0"]');await p.waitForTimeout(50);
 ok((await p.textContent('main')).includes('ບໍ່ມີວິດີໂອແກະກ່ອງ ບໍ່ສາມາດຮັບຄືນໄດ້')&&!(await p.$('[data-x="rtsend"]')),'no unboxing video: blocked');
 await p.click('[data-x="rtvid"][data-k="1"]');await p.waitForTimeout(50);
-ok(!(await p.$('[data-rt="vlink"]'))&&(await p.textContent('main')).includes('WhatsApp'),'video: no link box, told to send it on WhatsApp after sending the case');
+await p.click('[data-x="vidpre"]');await p.waitForTimeout(80);
+ok(!(await p.$('[data-rt="vlink"]'))&&(await p.textContent('main')).includes('WhatsApp')&&(await p.evaluate(()=>document.body.textContent.includes(T.vwFirst))),'video: no link box, told to send it on WhatsApp after sending the case');
 await p.evaluate(()=>{S.rt.imgs=['u:a','u:b'];rr()});await p.click('[data-x="rtsend"]');await p.waitForTimeout(100);
 ok(await p.evaluate(()=>ST.cases.length)===0,'refund account required');
 await p.fill('[data-rt="rbank"]','BCEL');await p.fill('[data-rt="racct"]','0101999');await p.fill('[data-rt="rname"]','NOY');

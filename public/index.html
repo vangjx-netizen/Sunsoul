@@ -4192,10 +4192,11 @@ function returnHtml(){
  if(!R.reason)return pick+`<div class="note">${T.rtChoose}</div>`+pol;
  if(R.reason==="mind")return pick+`<div class="note" style="background:var(--red-bg);color:var(--bad);text-align:left"><b>${T.rtMindT}</b><br>${T.rtMindS}</div>`+pol;
  const needV=RT_VIDEO.includes(R.reason);
- if(needV&&R.video===false)return pick+`<fieldset class="fs"><legend>${T.rtVidQ}</legend><div class="seg"><button data-x="rtvid" data-k="1" aria-pressed="false">${T.rtVidYes}</button><button data-x="rtvid" data-k="0" aria-pressed="true">${T.rtVidNo}</button></div></fieldset>
+ if(needV&&R.video===false)return pick+`<fieldset class="fs"><legend>${T.rtVidQ}</legend><div class="seg how"><button data-x="rtvid" data-k="1" aria-pressed="false">${T.rtVidYes}</button><button data-x="rtvid" data-k="0" aria-pressed="true">${T.rtVidNo}</button></div></fieldset>
   <div class="note" style="background:var(--red-bg);color:var(--bad);text-align:left"><b>${T.rtNoVidT}</b><br>${T.rtNoVidS}</div>`+pol;
- return pick+`${needV?`<fieldset class="fs"><legend>${T.rtVidQ}</legend><div class="seg"><button data-x="rtvid" data-k="1" aria-pressed="${R.video===true}">${T.rtVidYes}</button><button data-x="rtvid" data-k="0" aria-pressed="false">${T.rtVidNo}</button></div>
-  ${R.video?`<div class="note" style="text-align:left;background:var(--green-bg);color:var(--green)">📹 <b>${T.vwT}</b><br><span style="font-size:13px">${T.vwHow}</span></div>`:""}</fieldset>`:""}
+ return pick+`${needV?`<fieldset class="fs"><legend>${T.rtVidQ}</legend><div class="seg how"><button data-x="rtvid" data-k="1" aria-pressed="${R.video===true}">${T.rtVidYes}</button><button data-x="rtvid" data-k="0" aria-pressed="false">${T.rtVidNo}</button></div>
+  ${R.video?`<div class="note" style="text-align:left;font-size:13px"><b>📹 ${T.vwT}</b><br>${T.vwStep1}<br>${T.vwStep2}</div>
+  <button type="button" class="sbtn" data-x="vidpre" style="opacity:.55;border-style:dashed">📹 WhatsApp · ${T.vwLater}</button>`:""}</fieldset>`:""}
  ${!needV||R.video?`<h2 class="sec">${T.rtRefT}</h2><div class="note">${T.rtRefS}</div>
  <div class="two"><label class="fld">${T.sBank}<input data-rt="rbank" value="${esc(R.rbank||"")}" placeholder="BCEL / LDB / JDB"></label><label class="fld">${T.sAcc}<input data-rt="racct" inputmode="numeric" value="${esc(R.racct||"")}"></label></div>
  <label class="fld">${T.saAccName}<input data-rt="rname" value="${esc(R.rname||"")}"></label>`:""}
@@ -4203,7 +4204,7 @@ function returnHtml(){
  <button class="addph" data-x="rtadd" aria-label="${T.addPh}">${ic("plus",22,2.2)}</button></div></div>
  <label class="fld">${T.rtNote} <small>${T.rtOpt}</small><textarea data-rt="note" rows="3">${esc(R.note)}</textarea></label>
  <div class="err" id="rterr"></div>
- <button class="cta" data-x="rtsend">${T.rtSend}</button><p class="psub" style="text-align:center;margin:0">${T.rtKeep}</p>`;
+ <button class="cta" data-x="rtsend" id="rtsendb">${T.rtSend}</button><p class="psub" style="text-align:center;margin:0">${T.rtKeep}</p>`;
 }
 const rtSend=guard(async()=>{
  const o=byId(ST.orders,S.oid),R=S.rt;if(!o)return;
@@ -4984,6 +4985,7 @@ app.addEventListener("click",e=>{
   case "slipsend":slipUp(id);break;
   case "cohow":S.co.how=d.k==="carrier"?"carrier":"door";rr();break;
   case "vidwa":vidWa(id);break;
+  case "vidpre":{toast(T.vwFirst);const b=$("#rtsendb");if(b)b.scrollIntoView({behavior:"smooth",block:"center"});break}
   case "catstog":S.catsOpen=!S.catsOpen;render(true);break;
   case "apick":S.addrTo=id||"home";S.af=null;S.tab="home";S.screen="addr";render();window.scrollTo(0,0);break;
   case "aback":addrBack();break;
@@ -5350,6 +5352,8 @@ Object.assign(T,{gTitle:"ເຂົ້າສູ່ລະບົບ",gSub:"ໃຊ�
 Object.assign(T,{vwT:"ສົ່ງວິດີໂອທາງ WhatsApp ຂອງ Sunsoul",vwHow:"ກົດ “ສົ່ງເຄສ” ກ່ອນ · ຈາກນັ້ນຈະມີປຸ່ມເປີດ WhatsApp ພ້ອມເລກເຄສ ໃຫ້ແນບວິດີໂອແກະກ່ອງສົ່ງໄດ້ເລີຍ (ຍາວເທົ່າໃດກໍໄດ້)",
  vwStepT:"ຂັ້ນຕໍ່ໄປ: ສົ່ງວິດີໂອແກະກ່ອງ",vwAgainT:"ວິດີໂອແກະກ່ອງ",vwStepS:n=>"ກົດປຸ່ມລຸ່ມນີ້ → WhatsApp ຈະເປີດພ້ອມຂໍ້ຄວາມເລກເຄສ <b style=\"white-space:nowrap\">"+n+"</b> → ກົດ 📎 ແນບວິດີໂອ ແລ້ວສົ່ງ · ທີມຈະກວດເຄສຫຼັງໄດ້ຮັບວິດີໂອ",
  vwBtn:"📹 ສົ່ງວິດີໂອທາງ WhatsApp",vwAgain:"ເປີດ WhatsApp ອີກຄັ້ງ",vwOpened:t=>"ເປີດ WhatsApp ແລ້ວ "+t+" · ຖ້າຍັງບໍ່ໄດ້ແນບວິດີໂອ ກົດອີກຄັ້ງ",
+ vwStep1:"① ກອກຂໍ້ມູນໃຫ້ຄົບ ແລ້ວກົດ “ສົ່ງເຄສ” ດ້ານລຸ່ມ",vwStep2:"② ປຸ່ມ WhatsApp ສີຂຽວຈະຂຶ້ນ · ກົດແລ້ວແນບວິດີໂອສົ່ງ (ຍາວເທົ່າໃດກໍໄດ້)",
+ vwLater:"ຂຶ້ນຫຼັງກົດສົ່ງເຄສ",vwFirst:"ກົດ “ສົ່ງເຄສ” ກ່ອນ · ຈາກນັ້ນປຸ່ມ WhatsApp ຈະຂຶ້ນ",
  vwMsg:(c,o)=>"ສະບາຍດີ Sunsoul · ສົ່ງວິດີໂອແກະກ່ອງ · ເຄສ "+c+" · ອໍເດີ #"+o,
  vwTeamSent:t=>"ລູກຄ້າເປີດ WhatsApp ແລ້ວ "+t,vwTeamNot:"ລູກຄ້າຍັງບໍ່ໄດ້ກົດສົ່ງ",vwTeamFind:n=>"ຄົ້ນຫາ “"+n+"” ໃນ WhatsApp ຂອງທີມ"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
