@@ -4404,8 +4404,27 @@ function shopCasesHtml(){
   ${c.imgs&&c.imgs.length?`<div class="photos">${c.imgs.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div>`:""}
   <div class="note" style="text-align:left;font-size:13px">${T.scWhat[st]}${c.decisionNote?`<br>💬 “${esc(c.decisionNote)}”`:""}</div>
   ${st==="ex"?(c.shopReadyAt?`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.scReady}</div>`:`<button class="cta" data-x="scready" data-id="${esc(c.id)}">✓ ${T.scReadyBtn}</button>`):""}
-  ${st==="refund"||st==="other"?`<button class="sbtn" data-x="scseen" data-id="${esc(c.id)}" style="align-self:flex-start">${T.scSeen}</button>`:""}</section>`}).join("");
+  ${(S.scOpen||{})[c.id]?scDetailHtml(c,o,st):""}
+  <div class="aa" style="justify-content:flex-start">${st==="refund"||st==="other"?`<button class="sbtn" data-x="scseen" data-id="${esc(c.id)}">${T.scSeen}</button>`:""}
+   <button class="sbtn" data-x="scmore" data-id="${esc(c.id)}" aria-expanded="${!!(S.scOpen||{})[c.id]}">${T.scMore} ${(S.scOpen||{})[c.id]?"▴":"▾"}</button></div></section>`}).join("");
 }
+function scDetailHtml(c,o,st){
+ const R=RUL();
+ return `<div class="xt" style="border:0"><div><span>${T.scFiled}</span><b>${dm(c.createdAt)} ${hm(c.createdAt)}</b></div>
+  ${c.closedAt?`<div><span>${T.scDecided}</span><b>${dm(c.closedAt)} ${hm(c.closedAt)}</b></div>`:""}
+  <div><span>${T.sgShip}</span><b>${o.id?(shipperOf(o)==="shop"?T.sgShipShop:dMode(o)==="door"?T.sgShipDoor:T.sgShipTeam):"—"}</b></div>
+  ${RT_VIDEO.includes(c.reason)?`<div><span>${T.sgVid}</span><b>${c.video?"✓ "+T.scVidTeam:"✕ "+T.rtVidNo}</b></div>`:""}</div>
+  <section class="card" style="gap:6px;background:var(--soft)"><b>📋 ${T.scRulesT}</b><ul style="margin:0;padding-left:18px;font-size:13px">${T.scRules(R.returnDays).map(x=>`<li>${x}</li>`).join("")}</ul>
+   <button class="lnk" data-x="polopen" style="align-self:flex-start;font-size:13px">${T.polLink} ›</button></section>
+  <div class="note" style="text-align:left;font-size:13px">${T.scAskS}${c.shopAskAt?`<br><b>✓ ${T.scAsked(dm(c.shopAskAt)+" "+hm(c.shopAskAt))}</b>`:""}</div>
+  <button class="cta" style="background:#25D366" data-x="scask" data-id="${esc(c.id)}">💬 ${st==="other"||st==="open"?T.scAskQ:T.scAskNo}</button>`;
+}
+const scAsk=guard(async id=>{
+ const c=byId(ST.cases,id);if(!c)return;
+ const u=contactUrl(T.scMsg(c.shopName||"",c.no,c.ono||""));if(!u){toast(T.ctNone);return}
+ window.open(u,"_blank","noopener");
+ if(!c.shopAskAt)await put("cases",id,{...strip(c),shopAskAt:Date.now()});
+});
 function sOrdersHtml(){
  const L=ST.orders.filter(isMine).sort(byOld),now=Date.now();
  const fresh=L.filter(o=>o.status==="await_shop"||(o.status==="await_pay"&&!o.slipId&&now-(o.shopAt||0)<DAY));
@@ -4817,6 +4836,7 @@ function tCaseHtml(){
  <h2 class="sec">${T.csDecision}</h2>
  <section class="card" style="border:2px solid var(--accent)"><b>📋 ${T.sgT}</b>
   <div class="xt" style="border:0"><div><span>${T.sgShip}</span><b>${o0?(shipperOf(o0)==="shop"?T.sgShipShop:dMode(o0)==="door"?T.sgShipDoor:T.sgShipTeam):"—"}</b></div>
+  ${c.shopAskAt?`<div><span>🏪 ${T.csShop}</span><b style="color:var(--bad)">${T.scTeamSaw(dm(c.shopAskAt)+" "+hm(c.shopAskAt))}</b></div>`:""}
   ${c.want?`<div><span>${T.rmWant}</span><b>${c.want==="exchange"?"🔄 "+T.wnEx:"💰 "+T.wnRefund}</b></div>`:""}
   ${RT_VIDEO.includes(c.reason)?`<div><span>${T.sgVid}</span><b>${c.video?"✓ "+T.rtVidYes:"✕ "+T.rtVidNo}</b></div>${c.video?`<div><span>📹 WhatsApp</span><b>${c.vidSentAt?T.vwTeamSent(dm(c.vidSentAt)+" "+hm(c.vidSentAt)):T.vwTeamNot}<br><small class="psub">${T.vwTeamFind(esc(c.no))}</small></b></div>`:""}${c.vlink?`<div><span>${T.rtVidLink}</span><b style="word-break:break-all"><a href="${esc(/^https?:/.test(c.vlink)?c.vlink:"#")}" target="_blank" rel="noopener">${esc(c.vlink)}</a></b></div>`:""}`:""}</div>
   ${c.status==="open"&&o0&&shipperOf(o0)==="team"&&c.reason!=="missing"&&c.reason!=="mind"&&!(RT_VIDEO.includes(c.reason)&&c.video===false)?`<div><span class="psub" style="font-size:13px">${T.sgQ}</span><div class="seg" style="margin-top:6px"><button data-x="cpk" data-id="${esc(c.id)}" data-k="ok" aria-pressed="${S.nf["cpk"+c.id]==="ok"}">${T.sgOk}</button><button data-x="cpk" data-id="${esc(c.id)}" data-k="bad" aria-pressed="${S.nf["cpk"+c.id]==="bad"}">${T.sgBad}</button></div></div>`:""}
@@ -5037,6 +5057,8 @@ app.addEventListener("click",e=>{
   case "slipsend":slipUp(id);break;
   case "cohow":S.co.how=d.k==="carrier"?"carrier":"door";rr();break;
   case "vidwa":vidWa(id);break;
+  case "scmore":S.scOpen=S.scOpen||{};S.scOpen[id]=!S.scOpen[id];rr();break;
+  case "scask":scAsk(id);break;
   case "pzoom":{const pr=byId(ST.products,id);if(pr)lightbox(pr,allImgs(pr),0);break}
   case "bankpick":bankPick(t);break;
   case "rtwant":S.rt.want=d.k==="exchange"?"exchange":"refund";rr();break;
@@ -5430,7 +5452,16 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{seePh:"ເບິ່ງຮູບສິນຄ້າ",bkPh:"ເລືອກດ້ານລຸ່ມ ຫຼື ພິມຊື່ທະນາຄານ"});
+Object.assign(T,{scMore:"ລາຍລະອຽດ",scFiled:"ລູກຄ້າແຈ້ງ",scDecided:"ທີມຕັດສິນ",scVidTeam:"ສົ່ງໃຫ້ທີມທາງ WhatsApp",
+ scRulesT:"ກົດ: ເມື່ອໃດຮ້ານຕ້ອງຮັບຜິດຊອບ",
+ scRules:d=>["ສົ່ງເຄື່ອງຜິດຈາກທີ່ລູກຄ້າສັ່ງ (ລຸ້ນ / ສີ / ໄຊສ໌)",
+  "ທີມໄປຮັບເຄື່ອງ: ຖ້າຮູບທີ່ທີມຖ່າຍຕອນຮັບ / ແພັກ ສະແດງວ່າເຄື່ອງຜິດ ຫຼື ເສຍຫາຍຢູ່ແລ້ວ → ຮ້ານຮັບຜິດຊອບ · ຖ້າຮູບສະແດງວ່າເຄື່ອງດີ → Sunsoul ຮັບຜິດຊອບ",
+  "ຮ້ານຝາກຂົນສົ່ງເອງ: ຮ້ານຮັບຜິດຊອບທຸກກໍລະນີ (ເສຍຫາຍ, ບໍ່ຕົງປົກ, ກ່ອງເປົ່າ, ຂອງບໍ່ຄົບ)",
+  "ບໍ່ຮັບຄືນ: ລູກຄ້າປ່ຽນໃຈ, ບໍ່ມີວິດີໂອແກະກ່ອງ, ແຈ້ງຊ້າກວ່າ "+d+" ວັນ",
+  "ຜົນ: ຄືນເງິນ → ຮ້ານບໍ່ໄດ້ຮັບເງິນອໍເດີນັ້ນ ແລະ ໄດ້ເຄື່ອງຄືນ · ປ່ຽນສິນຄ້າ → ຮ້ານສົ່ງເຄື່ອງໃໝ່ ແລ້ວໄດ້ຮັບເງິນຫຼັງປ່ຽນ"],
+ scAskS:"ບໍ່ເຫັນດ້ວຍກັບຜົນ ຫຼື ມີຫຼັກຖານເພີ່ມ (ຮູບຕອນແພັກ, ໃບຝາກຂົນສົ່ງ, ວິດີໂອ) · ສົ່ງໃຫ້ທີມທາງ WhatsApp ພາຍໃນ 3 ວັນ · ທີມຈະກວດຄືນ",
+ scAskNo:"ບໍ່ເຫັນດ້ວຍ · ຕິດຕໍ່ Sunsoul",scAskQ:"ຕິດຕໍ່ Sunsoul ກ່ຽວກັບເຄສນີ້",scAsked:t=>"ຕິດຕໍ່ທີມແລ້ວ "+t,
+ scMsg:(s,c,o)=>"ສະບາຍດີ Sunsoul · ຮ້ານ "+s+" · ກ່ຽວກັບເຄສ "+c+" (ອໍເດີ #"+o+")",scTeamSaw:t=>"ຮ້ານຕິດຕໍ່ທີມກ່ຽວກັບເຄສນີ້ "+t+" · ກວດ WhatsApp",seePh:"ເບິ່ງຮູບສິນຄ້າ",bkPh:"ເລືອກດ້ານລຸ່ມ ຫຼື ພິມຊື່ທະນາຄານ"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
  suNeedName:"ກະລຸນາໃສ່ຊື່",suHave:"ມີບັນຊີແລ້ວ?",suToLogin:"ເຂົ້າສູ່ລະບົບ",suNone:"ຍັງບໍ່ມີບັນຊີ?",suToNew:"ສ້າງບັນຊີໃໝ່",
  suNameT:"ຍິນດີຕ້ອນຮັບສູ່ Sunsoul!",suNameS:"ບອກຊື່ຂອງເຈົ້າ ເພື່ອໃຊ້ຕອນສັ່ງຊື້ ແລະ ຕິດຕໍ່",suGo:"ເລີ່ມໃຊ້ງານ",suDone:n=>"ສ້າງບັນຊີສຳເລັດ · ຍິນດີຕ້ອນຮັບ "+n,

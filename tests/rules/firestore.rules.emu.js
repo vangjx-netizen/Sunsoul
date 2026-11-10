@@ -118,6 +118,7 @@ const deny = (name, p) => check(name, p, false);
   await deny('another shop cannot read it', getDoc(doc(as('other-shop'), 'cases/c5')));
   await allow('shop says the replacement is ready', updateDoc(doc(shop, 'cases/c5'), { shopReadyAt: 9 }));
   await allow('shop marks the decision as read', updateDoc(doc(shop, 'cases/c5'), { shopSeenAt: 9 }));
+  await allow('shop notes it contacted the team', updateDoc(doc(shop, 'cases/c5'), { shopAskAt: 9 }));
   await deny('shop cannot change the decision', updateDoc(doc(shop, 'cases/c5'), { owner: 'us' }));
   await deny('shop cannot mark the exchange as done', updateDoc(doc(shop, 'cases/c5'), { exDoneAt: 9 }));
   await deny('buyer cannot decide own case', setDoc(doc(buyer, 'cases/c8'), { uid: 'buyer', status: 'open', owner: 'us', refund: 999 }));
