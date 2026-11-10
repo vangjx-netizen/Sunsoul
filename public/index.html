@@ -2766,15 +2766,16 @@ function subscribe(){
 /* Firebase, for everyone but the team: the security rules only let a person read their own orders, cases and
    money, plus the orders of a shop they own. Results from several queries are merged into ST.orders / ST.locks.
    Stock is counted from orderPub, a copy of each order without names, phones or addresses. */
-const SRC={o:{},l:{}},SHOPW={};
-function mergeSrc(){const o={},l={};Object.values(SRC.o).forEach(m=>Object.assign(o,m));Object.values(SRC.l).forEach(m=>Object.assign(l,m));ST.orders=Object.values(o);ST.locks=l}
-function watchInto(kind,key,q){q.onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=kind==="o"?{...d.data(),id:d.id}:d.data()});SRC[kind][key]=m;mergeSrc();refresh()},()=>{})}
+const SRC={o:{},l:{},c:{}},SHOPW={};
+function mergeSrc(){const o={},l={},c={};Object.values(SRC.o).forEach(m=>Object.assign(o,m));Object.values(SRC.l).forEach(m=>Object.assign(l,m));Object.values(SRC.c).forEach(m=>Object.assign(c,m));ST.orders=Object.values(o);ST.locks=l;if(Object.keys(SRC.c).length)ST.cases=Object.values(c)}
+function watchInto(kind,key,q){q.onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=kind==="l"?d.data():{...d.data(),id:d.id}});SRC[kind][key]=m;mergeSrc();refresh()},()=>{})}
 const ownShop=s=>!!s&&!!s.ownerUid&&s.ownerUid===H.uid;
 function watchMyShops(){
  if(!H.scoped||S.canAdmin||!H.db)return;
  for(const s of ST.shops){if(SHOPW[s.id]||!ownShop(s))continue;SHOPW[s.id]=1;
   watchInto("o","s"+s.id,H.db.collection("orders").where("shopId","==",s.id));
-  watchInto("l","s"+s.id,H.db.collection("orderLock").where("shopId","==",s.id))}
+  watchInto("l","s"+s.id,H.db.collection("orderLock").where("shopId","==",s.id));
+  watchInto("c","s"+s.id,H.db.collection("cases").where("shopId","==",s.id))}
 }
 function subscribeScoped(){
  const err=e=>{S.err=(e&&e.code)||"error";refresh()},uid=H.uid;
@@ -2790,7 +2791,7 @@ function subscribeScoped(){
  if(!uid)return;
  watchInto("o","me",H.db.collection("orders").where("uid","==",uid));
  watchInto("l","me",H.db.collection("orderLock").where("uid","==",uid));
- H.db.collection("cases").where("uid","==",uid).onSnapshot(s=>{ST.cases=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},()=>{});
+ watchInto("c","me",H.db.collection("cases").where("uid","==",uid));
  H.db.doc("sellerApps/"+uid).onSnapshot(s=>{ST.sellerApps=s.exists?[{...s.data(),id:uid}]:[];refresh()},()=>{});
  H.db.doc("sellerDecision/"+uid).onSnapshot(s=>{ST.sellerDec=s.exists?{[uid]:s.data()}:{};refresh()},()=>{});
 }
@@ -4197,7 +4198,8 @@ function returnHtml(){
  return pick+`${needV?`<fieldset class="fs"><legend>${T.rtVidQ}</legend><div class="seg how"><button data-x="rtvid" data-k="1" aria-pressed="${R.video===true}">${T.rtVidYes}</button><button data-x="rtvid" data-k="0" aria-pressed="false">${T.rtVidNo}</button></div>
   ${R.video?`<div class="note" style="text-align:left;font-size:13px"><b>📹 ${T.vwT}</b><br>${T.vwStep1}<br>${T.vwStep2}</div>
   <button type="button" class="sbtn" data-x="vidpre" style="opacity:.55;border-style:dashed">📹 WhatsApp · ${T.vwLater}</button>`:""}</fieldset>`:""}
- ${!needV||R.video?`<h2 class="sec">${T.rtRefT}</h2><div class="note">${T.rtRefS}</div>
+ ${(!needV||R.video)&&RT_FIX.includes(R.reason)?wantHtml(R):""}
+ ${(!needV||R.video)&&R.want!=="exchange"?`<h2 class="sec">${T.rtRefT}</h2><div class="note">${T.rtRefS}</div>
  <div class="two"><label class="fld">${T.sBank}<input data-rt="rbank" value="${esc(R.rbank||"")}" placeholder="BCEL / LDB / JDB"></label><label class="fld">${T.sAcc}<input data-rt="racct" inputmode="numeric" value="${esc(R.racct||"")}"></label></div>
  <label class="fld">${T.saAccName}<input data-rt="rname" value="${esc(R.rname||"")}"></label>`:""}
  <div class="fld"><span>${T.rtPhotos} <small>${T.rtPhotosHint}</small></span><div class="photos">${R.imgs.map((id,i)=>`<div class="pt"><img src="${imgSrc(id)}" alt=""><button class="x" data-x="rtrm" data-i="${i}" aria-label="${T.rm}">${ic("x",14,2.6)}</button></div>`).join("")}
@@ -4206,17 +4208,24 @@ function returnHtml(){
  <div class="err" id="rterr"></div>
  <button class="cta" data-x="rtsend" id="rtsendb">${T.rtSend}</button><p class="psub" style="text-align:center;margin:0">${T.rtKeep}</p>`;
 }
+/* wrong / damaged / not as pictured / missing parts: the customer picks a refund or the correct item instead */
+const RT_FIX=["wrong","damaged","photo","empty"];
+function wantHtml(R){
+ return `<fieldset class="fs"><legend>${T.wnQ}</legend><div class="seg how"><button data-x="rtwant" data-k="refund" aria-pressed="${R.want==="refund"}">💰 ${T.wnRefund}</button><button data-x="rtwant" data-k="exchange" aria-pressed="${R.want==="exchange"}">🔄 ${T.wnEx}</button></div>
+  ${R.want==="exchange"?`<div class="note" style="text-align:left;font-size:13px">${T.wnExS}</div>`:R.want==="refund"?`<div class="psub" style="font-size:12px">${T.wnRefundS}</div>`:""}</fieldset>`;
+}
 const rtSend=guard(async()=>{
  const o=byId(ST.orders,S.oid),R=S.rt;if(!o)return;
  if(!R.reason||R.reason==="mind")return;
  const needV=RT_VIDEO.includes(R.reason);
  if(needV&&R.video!==true){$("#rterr").textContent=T.rtNeedVid;return}
  if(R.imgs.length<2){$("#rterr").textContent=T.rtNeed2;return}
- if(!String(R.rbank||"").trim()||!String(R.racct||"").trim()||!String(R.rname||"").trim()){$("#rterr").textContent=T.rtNeedAcct;return}
+ if(RT_FIX.includes(R.reason)&&!R.want){$("#rterr").textContent=T.wantNeed;return}
+ if(R.want!=="exchange"&&(!String(R.rbank||"").trim()||!String(R.racct||"").trim()||!String(R.rname||"").trim())){$("#rterr").textContent=T.rtNeedAcct;return}
  const id=newId("c"),no=nextCase(),now=Date.now(),kid=saIdOf(S.user&&S.user.phone);
- const acct={rbank:R.rbank.trim(),racct:R.racct.trim(),rname:R.rname.trim(),rat:now};
- if(H.db){await H.db.doc("kyc/"+kid).update(acct).catch(()=>H.db.doc("kyc/"+kid).set(acct))}else ST.kyc[kid]={...(ST.kyc[kid]||{}),...acct};
- await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",createdAt:now});
+ const acct={rbank:String(R.rbank||"").trim(),racct:String(R.racct||"").trim(),rname:String(R.rname||"").trim(),rat:now};
+ if(R.want==="exchange"){}else if(H.db){await H.db.doc("kyc/"+kid).update(acct).catch(()=>H.db.doc("kyc/"+kid).set(acct))}else ST.kyc[kid]={...(ST.kyc[kid]||{}),...acct};
+ await put("cases",id,{uid:H.uid||"",no,oid:o.id,ono:o.no,pname:o.pname,shopId:o.shopId,shopName:o.shopName,cust:o.cust,reason:R.reason,note:R.note.trim(),imgs:R.imgs,video:needV?true:null,want:RT_FIX.includes(R.reason)?R.want:"refund",vlink:String(R.vlink||"").trim(),kycId:kid,shipper:shipperOf(o),status:"open",createdAt:now});
  await setOrder(o,{caseId:id},"customer");
  S.screen="home";S.tab="orders";toast(T.rtGot+" · "+no);render();
 });
@@ -4335,7 +4344,7 @@ const isMine=o=>{const s=byId(ST.shops,S.shopId);return !!s&&(o.shopId===s.id||(
 const prodMine=p=>{const s=byId(ST.shops,S.shopId);return !!s&&(p.shopId===s.id||(!p.shopId&&norm(p.shopName)===norm(s.name)))};
 const holdDays=o=>{const sh=byId(ST.shops,o.shopId)||ST.shops.find(s=>norm(s.name)===norm(o.shopName))||{},R=RUL();return dMode(o)!=="door"?R.carrierDays:(sh.type==="person"?R.holdNewDays:R.returnDays)};
 const payAt=o=>((dMode(o)!=="door"?(o.handedAt||o.deliveredAt):o.deliveredAt)||0)+holdDays(o)*DAY;
-const caseHold=o=>ST.cases.some(c=>c.oid===o.id&&c.status==="open");
+const caseHold=o=>ST.cases.some(c=>c.oid===o.id&&(c.status==="open"||(c.remedy==="exchange"&&!c.exDoneAt)));
 const itemLine=o=>`${esc(o.pname)} · ${esc(o.vlabel)} × ${o.qty||1}`;
 const byOld=(a,b)=>(a.createdAt||0)-(b.createdAt||0);
 
@@ -4356,6 +4365,23 @@ function sCard(o){
   :o.status==="await_pay"&&!o.slipId?`<div class="note" style="background:var(--green-bg);color:var(--green)">${T.shPrep}</div><button class="sbtn" data-x="sundo" data-id="${esc(o.id)}">${T.shUndo}</button>`
   :o.status==="declined"?`<div class="note">${T.shDecNote}</div><div class="aa"><button class="sbtn" data-x="sundo" data-id="${esc(o.id)}">${T.shUndo}</button><button class="sbtn danger" data-x="shide" data-id="${esc(o.id)}">${S.confirm==="sh"+o.id?T.hideSure:T.hideOne}</button></div>`:""}</section>`;
 }
+/* the shop sees every customer complaint about its orders: while the team checks it, the decision, and what to do */
+const shopCaseShow=c=>c.status==="open"||(c.status==="closed"&&(c.owner==="store"&&c.remedy==="exchange"?!c.exDoneAt:!c.shopSeenAt));
+function shopCasesHtml(){
+ const L=ST.cases.filter(c=>c.shopId===S.shopId&&shopCaseShow(c)).sort((a,b)=>(b.closedAt||b.createdAt||0)-(a.closedAt||a.createdAt||0));
+ if(!L.length)return "";
+ return `<div class="feedh"><h2 class="sec" style="color:var(--bad)">🔔 ${T.scT}</h2><span>${L.length}</span></div>`+L.map(c=>{
+  const o=byId(ST.orders,c.oid)||{},reason=(T.rtReasons.find(r=>r[0]===c.reason)||[])[1]||c.reason;
+  const st=c.status==="open"?"open":c.owner==="store"?(c.remedy==="exchange"?"ex":"refund"):"other";
+  return `<section class="card" style="border:2px solid ${st==="open"?"var(--accent)":st==="other"?"var(--line)":"var(--bad)"}">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${T.caseNo} ${esc(c.no)} · #${esc(c.ono||"")}</b><span class="chip ${st==="open"?"a":st==="other"?"g":"r"}">${T.scChip[st]}</span></div>
+  <div class="arow" style="border:0;padding:0"><div class="th">${thumb(o.img,"th")}</div><div class="am"><b>${esc(c.pname||"")}</b><div>${esc(o.vlabel||"")}</div><div class="psub" style="font-size:12px">${esc(reason)}${c.want?" · "+T.scWant(c.want==="exchange"?T.wnEx:T.wnRefund):""}</div></div></div>
+  ${c.note?`<div class="psub">“${esc(c.note)}”</div>`:""}
+  ${c.imgs&&c.imgs.length?`<div class="photos">${c.imgs.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div>`:""}
+  <div class="note" style="text-align:left;font-size:13px">${T.scWhat[st]}${c.decisionNote?`<br>💬 “${esc(c.decisionNote)}”`:""}</div>
+  ${st==="ex"?(c.shopReadyAt?`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.scReady}</div>`:`<button class="cta" data-x="scready" data-id="${esc(c.id)}">✓ ${T.scReadyBtn}</button>`):""}
+  ${st==="refund"||st==="other"?`<button class="sbtn" data-x="scseen" data-id="${esc(c.id)}" style="align-self:flex-start">${T.scSeen}</button>`:""}</section>`}).join("");
+}
 function sOrdersHtml(){
  const L=ST.orders.filter(isMine).sort(byOld),now=Date.now();
  const fresh=L.filter(o=>o.status==="await_shop"||(o.status==="await_pay"&&!o.slipId&&now-(o.shopAt||0)<DAY));
@@ -4363,7 +4389,7 @@ function sOrdersHtml(){
  const doing=L.filter(o=>["await_verify","await_pickup","shipping"].includes(o.status)||(o.status==="await_pay"&&o.slipId));
  /* customer-cancelled orders stay on top, in red, until the shop acknowledges them */
  const cxl=shopCancelled(S.shopId);
- return `${cxl.length?`<div class="feedh"><h2 class="sec" style="color:var(--bad)">🔔 ${T.cxT}</h2><span>${cxl.length}</span></div>`+cxl.map(o=>`<section class="card" style="border:2px solid var(--bad)">
+ return `${shopCasesHtml()}${cxl.length?`<div class="feedh"><h2 class="sec" style="color:var(--bad)">🔔 ${T.cxT}</h2><span>${cxl.length}</span></div>`+cxl.map(o=>`<section class="card" style="border:2px solid var(--bad)">
   <div style="display:flex;justify-content:space-between;align-items:center"><b>#${esc(o.no)}</b><span class="chip r">${T.cxChip}</span></div>
   <div class="arow" style="border:0;padding:0"><div class="th">${thumb(o.img,"th")}</div><div class="am"><b>${esc(o.pname)}</b><div>${esc(o.vlabel)} · ${o.qty||1}</div><div class="psub" style="font-size:12px">${T.cxWhen(dm(cxAt(o))+" "+hm(cxAt(o)))}</div></div></div>
   <div class="note" style="background:var(--red-bg);color:var(--bad)">${T.cxNote}</div>
@@ -4767,16 +4793,18 @@ function tCaseHtml(){
  <h2 class="sec">${T.csDecision}</h2>
  <section class="card" style="border:2px solid var(--accent)"><b>📋 ${T.sgT}</b>
   <div class="xt" style="border:0"><div><span>${T.sgShip}</span><b>${o0?(shipperOf(o0)==="shop"?T.sgShipShop:dMode(o0)==="door"?T.sgShipDoor:T.sgShipTeam):"—"}</b></div>
+  ${c.want?`<div><span>${T.rmWant}</span><b>${c.want==="exchange"?"🔄 "+T.wnEx:"💰 "+T.wnRefund}</b></div>`:""}
   ${RT_VIDEO.includes(c.reason)?`<div><span>${T.sgVid}</span><b>${c.video?"✓ "+T.rtVidYes:"✕ "+T.rtVidNo}</b></div>${c.video?`<div><span>📹 WhatsApp</span><b>${c.vidSentAt?T.vwTeamSent(dm(c.vidSentAt)+" "+hm(c.vidSentAt)):T.vwTeamNot}<br><small class="psub">${T.vwTeamFind(esc(c.no))}</small></b></div>`:""}${c.vlink?`<div><span>${T.rtVidLink}</span><b style="word-break:break-all"><a href="${esc(/^https?:/.test(c.vlink)?c.vlink:"#")}" target="_blank" rel="noopener">${esc(c.vlink)}</a></b></div>`:""}`:""}</div>
   ${c.status==="open"&&o0&&shipperOf(o0)==="team"&&c.reason!=="missing"&&c.reason!=="mind"&&!(RT_VIDEO.includes(c.reason)&&c.video===false)?`<div><span class="psub" style="font-size:13px">${T.sgQ}</span><div class="seg" style="margin-top:6px"><button data-x="cpk" data-id="${esc(c.id)}" data-k="ok" aria-pressed="${S.nf["cpk"+c.id]==="ok"}">${T.sgOk}</button><button data-x="cpk" data-id="${esc(c.id)}" data-k="bad" aria-pressed="${S.nf["cpk"+c.id]==="bad"}">${T.sgBad}</button></div></div>`:""}
   <div class="note" style="text-align:left">→ <b>${sg.owner?esc((T.csOwners.find(x=>x[0]===sg.owner)||[])[1]||""):"?"}</b><br><span style="font-size:13px">${esc(sg.why)}</span></div>
   ${c.reason!=="mind"?`<span class="psub" style="font-size:12px">${T.sgRefund(fmt(dueOf(o)))}</span>`:""}</section>
  <fieldset class="fs"><legend>${T.csOwner}</legend>${T.csOwners.map(([k,l,s2])=>`<label class="radio ${ow===k?"on":""}"><input type="radio" name="own" data-xc="cowner" data-id="${esc(c.id)}" data-k="${k}" ${ow===k?"checked":""} ${c.status==="closed"||(k==="us"&&o0&&shipperOf(o0)==="shop")?"disabled":""}><span><b>${l}</b><small>${s2}</small></span></label>`).join("")}</fieldset>
+ ${c.status==="open"&&ow!=="none"&&c.reason!=="missing"?(()=>{const rm=S.nf["rm"+c.id]||c.want||"refund";return `<fieldset class="fs"><legend>${T.rmT}</legend><div class="seg how"><button data-x="cremedy" data-id="${esc(c.id)}" data-k="refund" aria-pressed="${rm==="refund"}">💰 ${T.wnRefund}</button><button data-x="cremedy" data-id="${esc(c.id)}" data-k="exchange" aria-pressed="${rm==="exchange"}">🔄 ${T.wnEx}</button></div></fieldset>`})():""}
  ${c.appeal?`<div class="note" style="border:2px solid var(--accent)"><b>${T.apT}</b><br>“${esc(c.appeal.note)}”<br><small>${dm(c.appeal.at)} ${hm(c.appeal.at)}</small></div>`:""}
  ${c.status==="open"&&ow==="none"?`<fieldset class="fs"><legend>${T.nwPick}</legend>${Object.keys(T.nwR).map(k=>`<label class="radio ${S.nf["cw"+c.id]===k?"on":""}"><input type="radio" name="nw" data-xc="cnowhy" data-id="${esc(c.id)}" data-k="${k}" ${S.nf["cw"+c.id]===k?"checked":""}><span><b>${typeof T.nwR[k]==="function"?T.nwR[k](RUL().returnDays):T.nwR[k]}</b></span></label>`).join("")}</fieldset>`:""}
  ${c.status==="open"?`<label class="fld"><span>${owNote(ow)}</span><textarea data-cnote="${esc(c.id)}" rows="3" placeholder="${T.csWhyPh}">${esc(S.nf["cn"+c.id]||"")}</textarea></label>
   <button class="cta" data-x="cdecide" data-id="${esc(c.id)}">${T.csDecide}</button>`
- :`<div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.csSaved}</b><br>${esc(T.csOut[c.owner]||"")}${c.decisionNote?`<br>“${esc(c.decisionNote)}”`:""}${c.closedAt?`<br><small>${dm(c.closedAt)} ${hm(c.closedAt)}</small>`:""}</div><button class="sbtn" data-x="creopen" data-id="${esc(c.id)}">${T.csReopen}</button>`}`;
+ :`<div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.csSaved}</b><br>${esc(T.csOut[c.owner]||"")}${c.remedy==="exchange"?" · "+T.rmExOut:""}${c.decisionNote?`<br>“${esc(c.decisionNote)}”`:""}${c.closedAt?`<br><small>${dm(c.closedAt)} ${hm(c.closedAt)}</small>`:""}</div>${c.remedy==="exchange"?`<div class="note" style="text-align:left">🔄 <b>${T.rmExT}</b><br>${c.shopReadyAt?"✓ "+T.rmShopReady(dm(c.shopReadyAt)+" "+hm(c.shopReadyAt)):T.rmShopWait}${c.exDoneAt?`<br><b style="color:var(--green)">✓ ${T.cuExDone} · ${dm(c.exDoneAt)}</b>`:""}</div>${c.exDoneAt?"":`<button class="cta" data-x="cexdone" data-id="${esc(c.id)}">✓ ${T.rmDoneBtn}</button>`}`:""}<button class="sbtn" data-x="creopen" data-id="${esc(c.id)}">${T.csReopen}</button>`}`;
 }
 /* ---- return policy ----
    Accepted: wrong item, damaged, far from the listing, empty box / missing parts, never arrived.
@@ -4799,8 +4827,8 @@ function caseSuggest(c,o){
  if(ans==="bad")return {owner:"store",why:T.sgTeamBad};
  return {owner:"",why:T.sgAsk};
 }
-const forfeit=o=>ST.cases.some(c=>c.oid===o.id&&c.status==="closed"&&c.owner==="store");
-const refundCases=()=>ST.cases.filter(c=>c.status==="closed"&&(c.owner==="store"||c.owner==="us")&&!c.refundedAt);
+const forfeit=o=>ST.cases.some(c=>c.oid===o.id&&c.status==="closed"&&c.owner==="store"&&c.remedy!=="exchange");
+const refundCases=()=>ST.cases.filter(c=>c.status==="closed"&&(c.owner==="store"||c.owner==="us")&&c.remedy!=="exchange"&&!c.refundedAt);
 function policyHtml(){
  const R=RUL(),li=a=>`<ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">${a.map(x=>`<li>${x}</li>`).join("")}</ul>`;
  return `<button class="sbtn" data-x="polclose" style="align-self:flex-start">‹ ${T.back}</button>
@@ -4838,7 +4866,7 @@ function custCaseHtml(c,o){
   <b style="font-size:18px;color:${col}">${no?"✕ "+T.cuNo:"✓ "+T.cuYes}</b>
   ${no&&c.noWhy?`<div><span class="psub" style="font-size:12px">${T.cuWhy}</span><br><b>${esc(nwText(c.noWhy))}</b></div>`:""}
   ${c.decisionNote?`<div class="note" style="text-align:left"><span class="psub" style="font-size:12px">${T.cuMsg}</span><br>“${esc(c.decisionNote)}”</div>`:""}
-  <div><span class="psub" style="font-size:12px">${T.cuNext}</span><br>${no?T.cuNextNo:c.refundedAt?`<b style="color:var(--green)">✓ ${T.cuRefunded(fmt(c.refund||amt))}</b> · ${dm(c.refundedAt)}`:T.cuRefundWait(fmt(c.refund||amt))}</div>
+  <div><span class="psub" style="font-size:12px">${T.cuNext}</span><br>${no?T.cuNextNo:c.remedy==="exchange"?(c.exDoneAt?`<b style="color:var(--green)">✓ ${T.cuExDone}</b> · ${dm(c.exDoneAt)}`:T.cuExWait):c.refundedAt?`<b style="color:var(--green)">✓ ${T.cuRefunded(fmt(c.refund||amt))}</b> · ${dm(c.refundedAt)}`:T.cuRefundWait(fmt(c.refund||amt))}</div>
   ${no&&!c.appeal?(S.appeal===c.id?`<label class="fld"><span>${T.apAsk}</span><textarea data-apnote="${esc(c.id)}" rows="3" placeholder="${T.apPh}">${esc(S.nf["ap"+c.id]||"")}</textarea></label><button class="cta" data-x="appealgo" data-id="${esc(c.id)}">${T.apSend}</button>`
    :`<div class="aa"><button class="sbtn" data-x="appeal" data-id="${esc(c.id)}">${T.apBtn}</button><button class="sbtn" data-x="help">${T.help}</button></div>`):no?`<span class="psub" style="font-size:12px">${T.apUsed}</span>`:""}</section>`;
 }
@@ -4985,6 +5013,11 @@ app.addEventListener("click",e=>{
   case "slipsend":slipUp(id);break;
   case "cohow":S.co.how=d.k==="carrier"?"carrier":"door";rr();break;
   case "vidwa":vidWa(id);break;
+  case "rtwant":S.rt.want=d.k==="exchange"?"exchange":"refund";rr();break;
+  case "cremedy":S.nf["rm"+id]=d.k==="exchange"?"exchange":"refund";rr();break;
+  case "cexdone":{const c=byId(ST.cases,id);if(c)caseSet(id,{exDoneAt:Date.now(),log:[...(c.log||[]),{at:Date.now(),action:"exchanged"}]});break}
+  case "scready":{const c=byId(ST.cases,id);if(c)caseSet(id,{shopReadyAt:Date.now()});break}
+  case "scseen":{const c=byId(ST.cases,id);if(c)caseSet(id,{shopSeenAt:Date.now()});break}
   case "vidpre":{toast(T.vwFirst);const b=$("#rtsendb");if(b)b.scrollIntoView({behavior:"smooth",block:"center"});break}
   case "catstog":S.catsOpen=!S.catsOpen;render(true);break;
   case "apick":S.addrTo=id||"home";S.af=null;S.tab="home";S.screen="addr";render();window.scrollTo(0,0);break;
@@ -5086,10 +5119,11 @@ app.addEventListener("click",e=>{
   case "copen":S.cid=id;rr();window.scrollTo(0,0);break;
   case "cdecide":{const c=byId(ST.cases,id);const note=String(S.nf["cn"+id]||"").trim();
    const o=byId(ST.orders,c.oid),sg=caseSuggest(c,o),owner=S.nf["c"+id]||c.owner||sg.owner||"store",now=Date.now(),noWhy=owner==="none"?S.nf["cw"+id]||sg.noWhy||"":"";
+   const remedy=owner==="none"||c.reason==="missing"?"refund":(S.nf["rm"+id]||c.want||"refund");
    if(owner==="us"&&o&&shipperOf(o)==="shop"){toast(T.sgUsBlocked);break}
    if(owner==="none"&&!noWhy){toast(T.nwNeed);break}
    if(!note){toast(T.csNeedWhy);break}
-   caseSet(id,{status:"closed",owner,noWhy,closedAt:now,decisionNote:note,refund:owner==="none"||!o?0:dueOf(o),log:[...(c.log||[]),{at:now,action:"closed",owner,note,noWhy}]});delete S.nf["cn"+id];delete S.nf["cw"+id];break}
+   caseSet(id,{status:"closed",owner,noWhy,remedy,closedAt:now,decisionNote:note,refund:owner==="none"||!o||remedy==="exchange"?0:dueOf(o),log:[...(c.log||[]),{at:now,action:"closed",owner,note,noWhy,remedy}]});delete S.nf["cn"+id];delete S.nf["cw"+id];break}
   case "creopen":{const c=byId(ST.cases,id);caseSet(id,{status:"open",log:[...(c.log||[]),{at:Date.now(),action:"reopen"}]});break}
  }
 });
@@ -5356,6 +5390,20 @@ Object.assign(T,{vwT:"ສົ່ງວິດີໂອທາງ WhatsApp ຂອງ
  vwLater:"ຂຶ້ນຫຼັງກົດສົ່ງເຄສ",vwFirst:"ກົດ “ສົ່ງເຄສ” ກ່ອນ · ຈາກນັ້ນປຸ່ມ WhatsApp ຈະຂຶ້ນ",
  vwMsg:(c,o)=>"ສະບາຍດີ Sunsoul · ສົ່ງວິດີໂອແກະກ່ອງ · ເຄສ "+c+" · ອໍເດີ #"+o,
  vwTeamSent:t=>"ລູກຄ້າເປີດ WhatsApp ແລ້ວ "+t,vwTeamNot:"ລູກຄ້າຍັງບໍ່ໄດ້ກົດສົ່ງ",vwTeamFind:n=>"ຄົ້ນຫາ “"+n+"” ໃນ WhatsApp ຂອງທີມ"});
+Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefund:"ຄືນເງິນ",wnEx:"ປ່ຽນສິນຄ້າໃໝ່ໃຫ້ຖືກ",
+ wnRefundS:"ຖ້າຜ່ານ ຈະຄືນເງິນເຕັມຈຳນວນເຂົ້າບັນຊີທີ່ແຈ້ງ",
+ wnExS:"ຖ້າຜ່ານ ຮ້ານຈະສົ່ງສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມທີ່ສັ່ງ ແລະ ທີມຈະນັດຮັບເຄື່ອງເກົ່າຄືນ · ຖ້າຮ້ານບໍ່ມີເຄື່ອງປ່ຽນ ທີມຈະຕິດຕໍ່ເພື່ອຄືນເງິນແທນ",
+ wantNeed:"ເລືອກວ່າຕ້ອງການຄືນເງິນ ຫຼື ປ່ຽນສິນຄ້າ",
+ rmT:"ວິທີແກ້ໄຂ",rmWant:"ລູກຄ້າຕ້ອງການ",rmExT:"ປ່ຽນສິນຄ້າ",rmShopReady:t=>"ຮ້ານກຽມສິນຄ້າໃໝ່ແລ້ວ "+t,rmShopWait:"ລໍຮ້ານກຽມສິນຄ້າໃໝ່",
+ rmDoneBtn:"ປ່ຽນໃຫ້ລູກຄ້າແລ້ວ (ສົ່ງເຄື່ອງໃໝ່ ແລະ ຮັບເຄື່ອງເກົ່າແລ້ວ)",rmExOut:"ປ່ຽນສິນຄ້າໃໝ່ (ບໍ່ຄືນເງິນ)",
+ cuExWait:"ຮ້ານຈະສົ່ງສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງ · ທີມຈະຕິດຕໍ່ນັດຮັບເຄື່ອງເກົ່າ ແລະ ສົ່ງເຄື່ອງໃໝ່ໃຫ້",cuExDone:"ປ່ຽນສິນຄ້າໃຫ້ແລ້ວ",
+ scT:"ເລື່ອງຈາກລູກຄ້າ",scChip:{open:"ທີມກຳລັງກວດ",refund:"ຮ້ານຮັບຜິດຊອບ",ex:"ຕ້ອງປ່ຽນສິນຄ້າ",other:"ປິດເລື່ອງແລ້ວ"},
+ scWant:w=>"ລູກຄ້າຕ້ອງການ: "+w,
+ scWhat:{open:"ລູກຄ້າແຈ້ງບັນຫາອໍເດີນີ້ · ທີມ Sunsoul ກຳລັງກວດ ແລະ ອາດໂທຫາຮ້ານ · ເງິນອໍເດີນີ້ພັກໄວ້ຈົນກວ່າຈະປິດເລື່ອງ",
+  refund:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ · ລູກຄ້າໄດ້ເງິນຄືນ · ຮ້ານບໍ່ໄດ້ຮັບເງິນອໍເດີນີ້ · ທີມຈະຕິດຕໍ່ນັດສົ່ງເຄື່ອງຄືນໃຫ້ຮ້ານ",
+  ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
+  other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
+ scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
 Object.assign(T,{suTitle:"ສ້າງບັນຊີໃໝ່",suSub:"ໃສ່ຊື່ ແລະ ເບີໂທ · ບໍ່ຕ້ອງມີລະຫັດຜ່ານ · ໃຊ້ເວລາ 1 ນາທີ",suName:"ຊື່ ແລະ ນາມ ສະກຸນ",suNamePh:"ຊື່...",
  suNeedName:"ກະລຸນາໃສ່ຊື່",suHave:"ມີບັນຊີແລ້ວ?",suToLogin:"ເຂົ້າສູ່ລະບົບ",suNone:"ຍັງບໍ່ມີບັນຊີ?",suToNew:"ສ້າງບັນຊີໃໝ່",
  suNameT:"ຍິນດີຕ້ອນຮັບສູ່ Sunsoul!",suNameS:"ບອກຊື່ຂອງເຈົ້າ ເພື່ອໃຊ້ຕອນສັ່ງຊື້ ແລະ ຕິດຕໍ່",suGo:"ເລີ່ມໃຊ້ງານ",suDone:n=>"ສ້າງບັນຊີສຳເລັດ · ຍິນດີຕ້ອນຮັບ "+n,

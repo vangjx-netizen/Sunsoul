@@ -116,10 +116,12 @@ service cloud.firestore {
 
     // ---- return / complaint cases ----
     match /cases/{id} {
-      allow read: if isTeam() || (signedIn() && resource.data.uid == me());
+      allow read: if isTeam() || (signedIn() && resource.data.uid == me()) || ownsShop(resource.data.shopId);
       allow create: if signedIn() && newData().uid == me() && newData().status == 'open'
-        && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt']);
+        && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt', 'remedy', 'exDoneAt', 'shopReadyAt', 'shopSeenAt']);
       allow update: if isTeam()
+        // the shop says the replacement is ready, or that it has read the decision
+        || (ownsShop(resource.data.shopId) && (onlyChanged(['shopReadyAt']) || onlyChanged(['shopSeenAt'])))
         || (signedIn() && resource.data.uid == me() && same('uid')
             && (onlyChanged(['custSeenAt']) || onlyChanged(['vidSentAt'])
                 || (resource.data.get('appeal', null) == null && onlyChanged(['appeal', 'status', 'log']) && newData().status == 'open')));

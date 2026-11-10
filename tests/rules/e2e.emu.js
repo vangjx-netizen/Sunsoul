@@ -127,7 +127,7 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   await admin(d => setDoc(doc(d, 'upimgs/r1'), { data: PX })); await admin(d => setDoc(doc(d, 'upimgs/r2'), { data: PX }));
   ok(await until(() => buyer.evaluate(() => (byId(ST.orders, 'o1') || {}).status === 'delivered')), 'buyer: order delivered');
   await buyer.evaluate(() => { S.oid = 'o1'; S.rt = { reason: '', note: '', imgs: [], video: null }; S.tab = 'home'; S.screen = 'return'; render(); });
-  await buyer.click('[data-x="rtreason"][data-k="damaged"]'); await buyer.click('[data-x="rtvid"][data-k="1"]');
+  await buyer.click('[data-x="rtreason"][data-k="damaged"]'); await buyer.click('[data-x="rtvid"][data-k="1"]'); await buyer.click('[data-x="rtwant"][data-k="refund"]');
   await buyer.fill('[data-rt="rbank"]', 'BCEL'); await buyer.fill('[data-rt="racct"]', '0101999'); await buyer.fill('[data-rt="rname"]', 'NOY');
   await buyer.evaluate(() => { S.rt.imgs = ['u:r1', 'u:r2']; rr(); });
   await buyer.evaluate(() => { window.__toasts = []; const t0 = toast; window.toast = m => { window.__toasts.push(m); t0(m); }; });
@@ -139,6 +139,9 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   ok(!!cdoc && cdoc.uid === buyerUid && cdoc.status === 'open' && cdoc.video === true && !('owner' in cdoc), 'case saved: buyer, open, with video, no decision');
   ok(((await admin(async d => (await getDoc(doc(d, 'kyc/' + buyerUid))).data())) || {}).racct === '0101999', 'refund account saved privately under the buyer');
   ok(await until(() => buyer.evaluate(() => !!document.querySelector('[data-x="vidwa"]'))), 'buyer: WhatsApp video button shows');
+  ok(await until(() => shop.evaluate(id => ST.cases.some(c => c.id === id), cid)), 'shop: receives the case about its order');
+  ok(await until(() => buyer.evaluate(id => ST.cases.some(c => c.id === id), cid)), 'buyer: still sees own case (cases merged from both queries)');
+  ok(await stranger.evaluate(id => !ST.cases.some(c => c.id === id), cid), 'other shop owner: does not get it');
   await buyer.evaluate(() => { ST.contact = { wa: '8562055556666' }; window.open = () => {}; });
   await buyer.click('[data-x="vidwa"]');
   ok(await until(async () => !!(await admin(async d => (await getDoc(doc(d, 'cases/' + cid))).data().vidSentAt))), 'buyer: “video sent on WhatsApp” saved with the real rules');
