@@ -84,7 +84,8 @@ service cloud.firestore {
           && (sameStatus()
               || moved(['await_pay', 'await_verify'], 'await_verify')                                  // sends a slip
               || (moved(['await_shop', 'await_pay'], 'cancelled') && newData().cancelWhy == 'customer') // cancels
-              || moved(['shipping'], 'delivered'));                                                    // receives (shop shipped)
+              || moved(['shipping'], 'delivered')                                                      // receives (carrier)
+              || (moved(['delivered'], 'shipping') && resource.data.get('receivedBy', '') == 'customer')); // takes back own "received"
       }
       function shopUpdate() {
         return ownsShop(resource.data.shopId) && fixed()

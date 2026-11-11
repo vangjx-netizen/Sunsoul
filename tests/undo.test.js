@@ -39,5 +39,20 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   await p.click('[data-x="undodel"][data-id="r"]'); await p.click('[data-x="undodel"][data-id="r"]'); await p.waitForTimeout(120);
   ok(await st('r') === 'shipping' && await p.evaluate(() => !ST.cases.some(c => c.oid === 'r') && !byId(ST.orders, 'r').caseId && !byId(ST.orders, 'r').refusedAt), 'refusal undone: back to “on the way”, the case is removed');
   ok(await p.evaluate(() => byId(ST.orders, 'r').history.some(h => h.undo)), 'the undo is kept in the order history');
+  // customer taps "received" by mistake on a carrier order, then takes it back
+  await p.evaluate(() => {
+    const o = byId(ST.orders, 'k'); o.handedAt = Date.now() - 3 * 86400000 - 1000;
+    S.tab = 'orders'; S.oid = 'k'; S.screen = 'home'; render();
+  });
+  await p.click('[data-x="received"][data-id="k"]'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => { const o = byId(ST.orders, 'k'); return o.status === 'delivered' && o.receivedBy === 'customer'; }) && !!(await p.$('[data-x="rcvundo"][data-id="k"]')), 'customer: “received” → an undo button shows');
+  await p.click('[data-x="rcvundo"][data-id="k"]'); await p.waitForTimeout(50);
+  await p.click('[data-x="rcvundo"][data-id="k"]'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => { const o = byId(ST.orders, 'k'); return o.status === 'shipping' && !o.receivedAt && !o.deliveredAt && !!o.handedAt; }), 'customer undo: back to “on the way”, can confirm again later');
+  // team delivered it, customer confirmed by mistake: only the confirmation is taken back
+  await p.evaluate(() => { const o = byId(ST.orders, 'a'); o.status = 'delivered'; o.deliveredAt = Date.now(); o.history = [...o.history, { s: 'delivered', at: Date.now(), by: 'team' }]; S.oid = 'a'; render(); });
+  await p.click('[data-x="received"][data-id="a"]'); await p.waitForTimeout(100);
+  await p.click('[data-x="rcvundo"][data-id="a"]'); await p.click('[data-x="rcvundo"][data-id="a"]'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => { const o = byId(ST.orders, 'a'); return o.status === 'delivered' && !!o.deliveredAt && !o.receivedAt; }), 'door order: undo removes only the customer’s confirmation, the team’s delivery stays');
   await b.close(); console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })();

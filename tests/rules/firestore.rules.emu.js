@@ -2,7 +2,7 @@
 // Run with:  npm run test:rules   (needs Java; starts the emulator, runs this file, stops it)
 const fs = require('fs'); const path = require('path');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where, deleteField } = require('firebase/firestore');
 
 let fails = 0, n = 0;
 async function check(name, p, shouldPass) {
@@ -24,6 +24,8 @@ const deny = (name, p) => check(name, p, false);
     await env.withSecurityRulesDisabled(async c => {
       const d = c.firestore();
       await setDoc(doc(d, 'admins/team1'), { name: 'Vang' });
+      await setDoc(doc(d, 'orders/r1'), order({ status: 'delivered', deliveredAt: 5, receivedAt: 5, receivedBy: 'customer' }));
+      await setDoc(doc(d, 'orders/r2'), order({ status: 'delivered', deliveredAt: 5 }));
       await setDoc(doc(d, 'teamEmails/boss@gmail.com'), { addedAt: 1 });
       await setDoc(doc(d, 'shops/s3'), { name: 'Mail shop', ownerEmail: 'owner@gmail.com' });
       await setDoc(doc(d, 'orders/o3'), { no: 'SS-3', uid: 'someone', shopId: 's3', pid: 'p1', vlabel: 'M', qty: 1, price: 1, status: 'await_shop', createdAt: 1, history: [] });
@@ -145,6 +147,8 @@ const deny = (name, p) => check(name, p, false);
   await allow('buyer attaches own refund account', updateDoc(doc(buyer, 'cases/cd'), { kycId: 'buyer', acctAt: 1 }));
   await deny('buyer cannot point the refund at someone else’s account', updateDoc(doc(buyer, 'cases/cd'), { kycId: 'applicant', acctAt: 2 }));
   await deny('stranger cannot open a case for the buyer', setDoc(doc(stranger, 'cases/cx'), { uid: 'buyer', status: 'open', reason: 'wrong' }));
+  await allow('buyer takes back own “received” (back to shipping)', updateDoc(doc(buyer, 'orders/r1'), { status: 'shipping', receivedAt: deleteField(), receivedBy: deleteField(), deliveredAt: deleteField() }));
+  await deny('buyer cannot undo a delivery the team marked', updateDoc(doc(buyer, 'orders/r2'), { status: 'shipping', deliveredAt: deleteField() }));
   await deny('buyer cannot decide own case', setDoc(doc(buyer, 'cases/c8'), { uid: 'buyer', status: 'open', owner: 'us', refund: 999 }));
   await deny('stranger cannot read the case', getDoc(doc(stranger, 'cases/c1')));
   await deny('buyer cannot mark the refund as paid', updateDoc(doc(buyer, 'cases/c1'), { refundedAt: 1 }));

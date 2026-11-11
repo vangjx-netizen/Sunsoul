@@ -204,7 +204,9 @@ async function pickPhoto(p, selector) {
   ok(await p.evaluate(id => { const o = byId(ST.orders, id); return o.status === 'shipping' && o.receiptNo === 'AN-12345' && o.shippedBy === 'shop' && !!o.handedAt }, oL), 'shop confirms hand-over: shipping with receipt number');
   await p.evaluate(id => { S.tab = 'orders'; S.oid = id; render(); }, oL);
   pg = await p.textContent('main');
-  ok(pg.includes('AN-12345') && pg.includes('ສາຂາ') && !!(await p.$(`[data-x="received"][data-id="${oL}"]`)), 'customer sees carrier + receipt number and can confirm receipt');
+  ok(pg.includes('AN-12345') && pg.includes('ສາຂາ') && !(await p.$(`[data-x="received"][data-id="${oL}"]`)) && !!(await p.$(`[data-x="rcvearly"][data-id="${oL}"]`)), 'customer sees carrier + receipt number; “received” not yet (only 3 days after hand-over), “got it early? tell the team” instead');
+  await p.evaluate(id => { byId(ST.orders, id).handedAt = Date.now() - 3 * 86400000 - 1000; render(); }, oL);
+  ok(!!(await p.$(`[data-x="received"][data-id="${oL}"]`)), '3 days after hand-over: customer can confirm receipt');
   await p.evaluate(() => { S.tab = 'team'; S.sub = 'run'; render(); });
   ok(!(await p.textContent('main')).includes('AN-12345'), 'team delivery list does not include it');
   const oP = await p.evaluate(async () => { S.pid = 'p2'; S.vi = 0; S.co = { name: 'Cust', phone: '020 7777 8888', addr: 'ເມືອງໄກສອນ, ແຂວງ ສະຫວັນນະເຂດ', map: '16.57000, 104.75000', branch: 'ອານຸສິດ ໄກສອນ', brPhone: '020 5555 7777', district: 'ໄກສອນ', prov: 'ສະຫວັນນະເຂດ' }; S.coCart = false; S.screen = 'checkout'; S.tab = 'home'; render(); await placeOrder(); await new Promise(r => setTimeout(r, 20)); return S.oid; });

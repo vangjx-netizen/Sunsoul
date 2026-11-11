@@ -3605,7 +3605,7 @@ Object.assign(T,{
  backBtn:"ກັບຄືນ",slipWord:"ສະລິບ"
 });
 Object.assign(ST,{orders:[],cases:[],shopOff:[],rules:null,locks:{},sellerApps:[],sellerDec:{},kyc:{},pub:[]});
-const RULES0={shopReplyMin:120,payMin:30,fixHours:24,returnDays:3,doorRcvHours:12,holdNewDays:7,carrierDays:5,maxPerRun:10};
+const RULES0={shopReplyMin:120,payMin:30,fixHours:24,returnDays:3,doorRcvHours:12,carrierRcvDays:3,holdNewDays:7,carrierDays:5,maxPerRun:10};
 const RUL=()=>({...RULES0,...(ST.rules||{})});
 const DAY=86400000;
 let OFF=new Set();
@@ -4168,14 +4168,17 @@ function orderDetailHtml(o){
  }else if(o.status==="shipping"){
   if(dMode(o)!=="door")body+=`<section class="card"><b>📦 ${o.handedAt?esc(shipLabel(o)):T.stSub.carrier}</b>${(o.packPhotos||[]).length?`<div class="photos">${o.packPhotos.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="${T.shReceiptPh}" data-zoom="${esc(id)}"></div>`).join("")}</div><span class="psub" style="font-size:12px">${T.receiptTap}</span>`:""}<span class="psub">${T.payAtBranch}</span></section>`;
   /* carrier orders: the customer collects at the branch, so they confirm themselves; door orders wait for the team's "delivered" */
-  body+=dMode(o)!=="door"?`<section class="card"><b>${T.rcvQ}</b><span class="psub">${T.rcvHint}</span><button class="cta" style="background:var(--green)" data-x="received" data-id="${esc(o.id)}">${T.rcvBtn}</button></section>`
+  /* the "received" button shows 3 days after the parcel was handed to the carrier (it rarely takes longer in Laos),
+     so it cannot be tapped long before the parcel can be there; the team can still mark it delivered sooner */
+  body+=dMode(o)!=="door"?(rcvOpen(o)?`<section class="card"><b>${T.rcvQ}</b><span class="psub">${T.rcvHint}</span><button class="cta" style="background:var(--green)" data-x="received" data-id="${esc(o.id)}">${T.rcvBtn}</button></section>`
+    :o.handedAt?`<div class="note" style="text-align:left">📦 ${T.rcvLater(dm(o.handedAt+RUL().carrierRcvDays*DAY))}<br><a href="#" data-x="rcvearly" data-id="${esc(o.id)}" style="font-size:13px">${T.rcvEarly} ›</a></div>`:"")
    :`<div class="note">🚚 ${T.rcvWaitTeam}</div>`;
  }else if(o.status==="delivered"){
   const c=caseOf(o),left=reportUntil(o)-Date.now();
   if(!c&&!rcvd(o))body+=`<section class="card" style="border:2px solid var(--green)"><b style="font-size:17px">${T.rcvQ}</b><span class="psub">${(()=>{const w=(o.deliveredAt||0)+rcvWait(o)-Date.now();return T.rcvAsk(dMode(o)==="door"?T.hrs(Math.max(1,Math.ceil(w/3600000))):T.dys(Math.max(1,Math.ceil(w/DAY))))})()}</span>
    <button class="cta" style="background:var(--green)" data-x="received" data-id="${esc(o.id)}">✓ ${T.rcvBtn}</button>
    <button class="sbtn danger" data-x="notrcv" data-id="${esc(o.id)}">${S.confirm==="nr"+o.id?T.notRcvSure:T.notRcv}</button></section>`;
-  else if(!c&&o.receivedAt)body+=`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.rcvAt(dm(o.receivedAt)+" "+hm(o.receivedAt))}</div>`;
+  else if(!c&&o.receivedAt)body+=`<div class="note" style="background:var(--green-bg);color:var(--green)">✓ ${T.rcvAt(dm(o.receivedAt)+" "+hm(o.receivedAt))}</div>${custCanUndo(o)?`<button class="sbtn${S.confirm==="ru"+o.id?" danger":""}" data-x="rcvundo" data-id="${esc(o.id)}" style="align-self:center">${S.confirm==="ru"+o.id?T.ruSure:T.ruBtn}</button>`:""}`;
   body+=c?custCaseHtml(c,o)
    :left>0?`<button class="sbtn" data-x="report" data-id="${esc(o.id)}">${T.reportBtn} <small>(${T.reportLeft(dMode(o)==="door"?T.hrs(Math.max(1,Math.ceil(left/3600000))):T.dys(Math.ceil(left/DAY)))})</small></button>`:`<div class="psub" style="text-align:center">${T.reportOver}</div>`;
  }
@@ -4210,9 +4213,23 @@ const slipUp=guard(async id=>{
 /* orders the customer pays together: same cart group, accepted by the shop, amount known */
 const payGroup=o=>o.gid?ST.orders.filter(x=>x.gid===o.gid&&x.status==="await_pay"&&hasDue(x)).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)):[o];
 /* the customer confirms they received the goods (the team can also mark it in the run) */
+const rcvOpen=o=>!!o.handedAt&&Date.now()>=o.handedAt+RUL().carrierRcvDays*DAY;
+/* the customer can take back their own "received" for 24 hours, while no case is open */
+const custCanUndo=o=>o.receivedBy==="customer"&&!!o.receivedAt&&Date.now()-o.receivedAt<DAY&&!caseOf(o)&&!o.paidOutAt;
+const rcvUndo=guard(async id=>{
+ const o=byId(ST.orders,id);if(!o||!custCanUndo(o))throw new Error(T.stale);
+ if(S.confirm!=="ru"+id){S.confirm="ru"+id;rr();return}
+ S.confirm="";
+ /* the customer moved it to delivered themselves (carrier) → back to shipping; the team delivered it → only the confirmation goes */
+ const self=(o.history||[]).slice(-1)[0],back=o.kind==="carrier"||dMode(o)!=="door"?(self&&self.s==="delivered"&&self.by==="customer"):false;
+ const next={...strip(o)};delete next.receivedAt;delete next.receivedBy;
+ if(back){delete next.deliveredAt;next.status="shipping";next.history=[...(o.history||[]),{s:"shipping",at:Date.now(),by:"customer",undo:true}]}
+ await put("orders",id,next);toast(T.ruDone);
+});
 const receivedOk=guard(async id=>{
  const o=byId(ST.orders,id);if(!o)return;const now=Date.now();
  if(o.status==="shipping"&&dMode(o)==="door")throw new Error(T.rcvWaitTeam);
+ if(o.status==="shipping"&&!rcvOpen(o))throw new Error(T.rcvTooSoon);
  if(o.status==="shipping")await setOrder(o,{status:"delivered",deliveredAt:now,receivedAt:now,receivedBy:"customer"},"customer","shipping");
  else await setOrder(o,{receivedAt:now,receivedBy:"customer"},"customer","delivered");
  toast(T.rcvDone);
@@ -5296,6 +5313,8 @@ app.addEventListener("click",e=>{
   case "spedit":{const p=byId(ST.products,id);if(p){S.sp=spFrom(p);S.confirm="";render()}break}
   case "spdel":spDel();break;
   case "received":receivedOk(id);break;
+  case "rcvundo":rcvUndo(id);break;
+  case "rcvearly":{const o=byId(ST.orders,id),u=o&&contactUrl(T.rcvEarlyMsg(o.no));if(u)window.open(u,"_blank","noopener");else toast(T.ctNone);break}
   case "notrcv":notReceived(id);break;
   case "showold":S.showOld=!S.showOld;rr();break;
   case "showdecl":S.showDecl=!S.showDecl;rr();break;
@@ -5648,7 +5667,9 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{unT:"ສົ່ງແລ້ວ ລ່າສຸດ",unS:"ກົດຜິດ? ຍ້ອນກັບໄດ້ພາຍໃນ 12 ຊົ່ວໂມງ (ຖ້າລູກຄ້າຍັງບໍ່ໄດ້ກົດຢືນຢັນເອງ)",unBtn:"ຍ້ອນກັບ · ຍັງບໍ່ຮອດ",
+Object.assign(T,{rcvLater:d=>"ເມື່ອໄປຮັບເຄື່ອງທີ່ສາຂາແລ້ວ ກົດຢືນຢັນໄດ້ຕັ້ງແຕ່ມື້ "+d+" (ຂົນສົ່ງປົກກະຕິ 3–4 ມື້)",rcvEarly:"ໄດ້ຮັບເຄື່ອງກ່ອນກຳນົດ? ແຈ້ງທີມ",
+ rcvEarlyMsg:n=>"ສະບາຍດີ Sunsoul · ຂ້ອຍໄດ້ຮັບເຄື່ອງອໍເດີ #"+n+" ແລ້ວ",rcvTooSoon:"ຍັງກົດບໍ່ໄດ້ · ເຄື່ອງຍັງບໍ່ທັນຮອດສາຂາ",
+ ruBtn:"↩ ກົດຜິດ · ຍັງບໍ່ໄດ້ຮັບເຄື່ອງ",ruSure:"ກົດອີກຄັ້ງ ເພື່ອຍ້ອນກັບ",ruDone:"ຍ້ອນກັບແລ້ວ · ກົດຢືນຢັນໃໝ່ເມື່ອໄດ້ຮັບເຄື່ອງ",unT:"ສົ່ງແລ້ວ ລ່າສຸດ",unS:"ກົດຜິດ? ຍ້ອນກັບໄດ້ພາຍໃນ 12 ຊົ່ວໂມງ (ຖ້າລູກຄ້າຍັງບໍ່ໄດ້ກົດຢືນຢັນເອງ)",unBtn:"ຍ້ອນກັບ · ຍັງບໍ່ຮອດ",
  unSure:"ກົດອີກຄັ້ງເພື່ອຍ້ອນກັບ",unRef:"ລູກຄ້າບໍ່ຮັບ",unChk:"ກວດແລ້ວ · ຮັບແລ້ວ",unDone:"ສົ່ງຮອດແລ້ວ",unDoneT:"ຍ້ອນກັບແລ້ວ · ອໍເດີກັບໄປ “ກຳລັງສົ່ງ”",stpAll:"ຈົບເຄສແລ້ວ",stpDecided:"ທີມຕັດສິນ",stpCustSend:"ລູກຄ້າສົ່ງເຄື່ອງຄືນມາ Sunsoul",stpTeamGot:"ທີມຮັບ ແລະ ກວດເຄື່ອງ",stpPickup:"ທີມໄປຮັບເຄື່ອງຄືນຈາກລູກຄ້າ",
  stpTookBack:"ທີມເອົາເຄື່ອງກັບແລ້ວ (ຕອນສົ່ງ)",stpRefund:a=>"ໂອນເງິນຄືນລູກຄ້າ "+a+" ກີບ",stpToShop:"ສົ່ງເຄື່ອງຄືນໃຫ້ຮ້ານ",stpShopReady:"ຮ້ານກຽມສິນຄ້າໃໝ່",stpExDone:"ປ່ຽນສິນຄ້າໃຫ້ລູກຄ້າ",
  stpWho:{cust:"ລໍລູກຄ້າ",team:"ລໍທີມ Sunsoul",shop:"ລໍຮ້ານ"},stpBy:d=>"ພາຍໃນ "+d,stpNext:"ຕໍ່ໄປ",
