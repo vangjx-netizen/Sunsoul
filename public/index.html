@@ -2763,6 +2763,7 @@ function subscribe(){
  H.db.collection("shops").onSnapshot(s=>{ST.shops=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},err);
  H.db.doc("settings/delivery").onSnapshot(s=>{ST.delivery=s.exists?s.data():null;refresh(true)},err);
  H.db.doc("settings/rules").onSnapshot(s=>{ST.rules=s.exists?s.data():null;refresh()},err);
+ H.db.collection("teamEmails").onSnapshot(s=>{ST.teamEmails=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},()=>{});
  H.db.collection("sellerApps").onSnapshot(s=>{ST.sellerApps=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},()=>{});
  H.db.collection("sellerDecision").onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});ST.sellerDec=m;refresh()},()=>{});
  H.db.doc("settings/pay").onSnapshot(s=>{ST.pay=s.exists?s.data():null;refresh()},err);
@@ -2780,7 +2781,8 @@ function subscribe(){
 const SRC={o:{},l:{},c:{}},SHOPW={};
 function mergeSrc(){const o={},l={},c={};Object.values(SRC.o).forEach(m=>Object.assign(o,m));Object.values(SRC.l).forEach(m=>Object.assign(l,m));Object.values(SRC.c).forEach(m=>Object.assign(c,m));ST.orders=Object.values(o);ST.locks=l;if(Object.keys(SRC.c).length)ST.cases=Object.values(c)}
 function watchInto(kind,key,q){q.onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=kind==="l"?d.data():{...d.data(),id:d.id}});SRC[kind][key]=m;mergeSrc();refresh()},()=>{})}
-const ownShop=s=>!!s&&!!s.ownerUid&&s.ownerUid===H.uid;
+/* a shop belongs to this person when it is linked to their account ID or to their Gmail */
+const ownShop=s=>!!s&&((!!s.ownerUid&&s.ownerUid===H.uid)||(!!H.email&&!!s.ownerEmail&&String(s.ownerEmail).toLowerCase()===H.email));
 function watchMyShops(){
  if(!H.scoped||S.canAdmin||!H.db)return;
  for(const s of ST.shops){if(SHOPW[s.id]||!ownShop(s))continue;SHOPW[s.id]=1;
@@ -3084,13 +3086,14 @@ async function saveProduct(pub){
 /* ---- team: sellers ---- */
 function shopsHtml(){
  return `<button class="cta" data-act="news">${T.addShop}</button>`+(ST.shops.length?ST.shops.map(s=>`<div class="arow" style="grid-template-columns:1fr"><div class="am"><b>${esc(s.name)}</b>${isVer(s)?vBadge(s):` <span class="chip a" style="font-size:11px">${T.vbNotYet}</span>`} <span class="shop">${s.type==="person"?T.sPerson:T.sShop}</span>
- <div class="shop">${esc(s.phone||"")} ${esc(s.addr||"")}${H.scoped?(s.ownerUid?` · <span style="color:var(--green)">🔗 ${T.ownOk}</span>`:` · ${T.ownNo}`):""}</div><div class="shop">${shopLocal(s)?"🚚 "+T.doorShort:"📦 "+esc(shopProv(s))+" · "+T.shopShort}</div><div class="shop" style="color:${parseLL(s.map)?"var(--green)":"var(--bad)"}">${parseLL(s.map)?"✓ "+T.llOk:"⚠ "+T.llNo}</div></div>
+ <div class="shop">${esc(s.phone||"")} ${esc(s.addr||"")}${H.scoped?(s.ownerUid||s.ownerEmail?` · <span style="color:var(--green)">🔗 ${T.ownOk}</span>`:` · ${T.ownNo}`):""}</div><div class="shop">${shopLocal(s)?"🚚 "+T.doorShort:"📦 "+esc(shopProv(s))+" · "+T.shopShort}</div><div class="shop" style="color:${parseLL(s.map)?"var(--green)":"var(--bad)"}">${parseLL(s.map)?"✓ "+T.llOk:"⚠ "+T.llNo}</div></div>
  <div class="aa"><button class="sbtn" data-act="edits" data-id="${esc(s.id)}">${T.edit}</button><button class="sbtn danger" data-act="dels" data-id="${esc(s.id)}">${S.confirm===s.id?T.delSure:T.del}</button></div></div>`).join(""):`<div class="empty">${T.noItems}</div>`);
 }
 function shopFormHtml(){
  const D=S.sdraft,shop=D.type==="shop";
  return `<div class="seg"><button data-sseg="shop" aria-pressed="${shop}" style="height:44px;font-size:15px">${T.sShop}</button><button data-sseg="person" aria-pressed="${!shop}" style="height:44px;font-size:15px">${T.sPerson}</button></div>
  <label class="fld">${shop?T.sNameShop:T.sNamePerson}<input data-sf="name" value="${esc(D.name)}"></label>
+ ${H.scoped?`<label class="fld"><span>${T.ownMailT} <small>${T.ownMailS}</small></span><input data-sf="ownerEmail" type="email" value="${esc(D.ownerEmail||"")}" placeholder="name@gmail.com" autocomplete="off" spellcheck="false"></label>`:""}
  ${H.scoped?`<label class="fld">${T.ownT}<input data-sf="ownerUid" value="${esc(D.ownerUid||"")}" placeholder="${T.ownPh}" autocomplete="off" spellcheck="false" style="font-family:var(--fn)"><small>${T.ownS}</small></label>`:""}
  <label class="fld">${H.scoped?T.sPhoneFb:T.sPhone}<input data-sf="phone" type="tel" placeholder="020 xxxx xxxx" value="${esc(D.phone)}" style="font-family:var(--fn)"></label>
  <label class="fld">${T.sAddr}<input data-sf="addr" value="${esc(D.addr)}"></label>
@@ -3106,7 +3109,7 @@ function shopFormHtml(){
 async function saveShop(){
  const D=S.sdraft;if(!D.name.trim()){$("#serr").textContent=T.errName;return}
  const id=D.id||newId("s"),name=D.name.trim(),old=ST.shops.find(s=>s.id===id)||{};
- const doc={...strip(old),ownerUid:String(D.ownerUid==null?old.ownerUid||"":D.ownerUid).replace(/^\s*ID:\s*/i,"").trim(),name,type:D.type,phone:D.phone.trim(),addr:D.addr.trim(),map:String(D.map||"").trim(),prov:shopProv(D),pickup:shopProv(D)===CAP?D.pickup:"self",agreed:true,demo:false,updatedAt:Date.now()};
+ const doc={...strip(old),ownerUid:String(D.ownerUid==null?old.ownerUid||"":D.ownerUid).replace(/^\s*ID:\s*/i,"").trim(),ownerEmail:String(D.ownerEmail==null?old.ownerEmail||"":D.ownerEmail).trim().toLowerCase(),name,type:D.type,phone:D.phone.trim(),addr:D.addr.trim(),map:String(D.map||"").trim(),prov:shopProv(D),pickup:shopProv(D)===CAP?D.pickup:"self",agreed:true,demo:false,updatedAt:Date.now()};
  doc.verified=!!D.verified;if(doc.verified&&!old.verified)doc.verifiedAt=Date.now();if(!doc.verified)delete doc.verifiedAt;
  delete doc.bank;delete doc.account;
  try{
@@ -3292,6 +3295,21 @@ function idCard(){
  <p class="psub" style="font-size:11px;margin:0;user-select:all">ID: ${esc(H.uid)}</p>
  <div class="aa" style="justify-content:center"><button class="sbtn" data-x="copyid" style="min-height:34px">📋 ${T.ctCopy}</button>${u?`<a ${lnkBtn} href="${esc(u)}">💬 ${T.ctSendId}</a>`:""}</div></div>`;
 }
+/* who is on the team, by Gmail: works on any device, and survives logging out */
+function teamMailHtml(){
+ if(!H.scoped)return "";
+ const L=ST.teamEmails||[];
+ return `<h2 class="sec">${T.tmT}</h2><section class="card"><span class="psub" style="font-size:13px">${T.tmS}</span>
+  ${L.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="overflow-wrap:anywhere">${esc(x.id)}${x.id===H.email?` <small class="psub">(${T.tmYou})</small>`:""}</b>
+   ${x.id===H.email?"":`<button class="sbtn danger" data-x="tmrm" data-id="${esc(x.id)}">${S.confirm==="tm"+x.id?T.delSure:T.rm}</button>`}</div>`).join("")||`<span class="psub">${T.tmNone}</span>`}
+  <div style="display:flex;gap:8px"><input data-tm="1" type="email" placeholder="name@gmail.com" value="${esc(S.tmNew||"")}" style="flex:1;min-width:0;height:44px;padding:0 12px;border-radius:12px;border:1.5px solid var(--line2);background:var(--card)"><button class="sbtn" data-x="tmadd">${T.tmAdd}</button></div></section>`;
+}
+async function tmAdd(){
+ const e=String(S.tmNew||"").trim().toLowerCase();
+ if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))throw new Error(T.tmBad);
+ await H.db.doc("teamEmails/"+e).set({addedAt:Date.now(),by:H.email||H.uid||""});S.tmNew="";toast(T.saved);
+}
+async function tmRm(id){if(S.confirm!=="tm"+id){S.confirm="tm"+id;rr();return}S.confirm="";await H.db.doc("teamEmails/"+id).delete()}
 function contactCfgHtml(){
  const C=ST.contact||{},D=S.ctDraft||(S.ctDraft={wa:C.wa||"",phone:C.phone||"",retAddr:C.retAddr||""});
  return `<h2 class="sec">${T.ccT}</h2><section class="card">
@@ -3361,7 +3379,7 @@ function feesHtml(){
  const d=DEL(),ts=d.updatedAt?new Date(d.updatedAt):null;
  const two=n=>String(n).padStart(2,"0");
  const pv=[1,d.baseKm,d.baseKm+1,10,d.farKm,d.farKm+10].filter((v,i,a)=>v>0&&a.indexOf(v)===i).sort((x,y)=>x-y);
- return `${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
+ return `${teamMailHtml()}${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
  <div class="zc"><span class="zn" style="background:var(--blue-bg)">◎</span><div class="zt"><b>${T.zT}</b><span>${T.zS}</span></div>
  <label><input data-fzonekm inputmode="numeric" aria-label="${T.zT}" value="${d.zoneKm}">${T.kmShort}</label></div>
  <label class="fld"><span>${T.zCenter} <small>${T.zCenterS}</small></span><input data-fzonell value="${esc(d.zoneLL)}" autocomplete="off" style="font-family:var(--fn)"></label>
@@ -3454,7 +3472,7 @@ app.addEventListener("click",async e=>{
   if(S.confirm!==id){S.confirm=id;render();return}
   S.confirm="";try{await remove(pcoll(byId(ST.products,id)),id);render()}catch(err){toast((err&&err.message)||"error")}}
  else if(a==="news"){S.sdraft={id:"",name:"",type:"shop",prov:CAP,phone:"",map:"",addr:"",pickup:"team",bank:"",account:"",agreed:false};render()}
- else if(a==="edits"){const s=ST.shops.find(x=>x.id===id);if(s){S.sdraft={ownerUid:s.ownerUid||"",id:s.id,name:s.name||"",type:s.type||"shop",prov:shopProv(s),phone:s.phone||"",map:s.map||"",addr:s.addr||"",pickup:s.pickup||"team",bank:PV(s).bank,account:PV(s).account,agreed:!!s.agreed,verified:!!s.verified};render()}}
+ else if(a==="edits"){const s=ST.shops.find(x=>x.id===id);if(s){S.sdraft={ownerUid:s.ownerUid||"",ownerEmail:s.ownerEmail||"",id:s.id,name:s.name||"",type:s.type||"shop",prov:shopProv(s),phone:s.phone||"",map:s.map||"",addr:s.addr||"",pickup:s.pickup||"team",bank:PV(s).bank,account:PV(s).account,agreed:!!s.agreed,verified:!!s.verified};render()}}
  else if(a==="cancels"){S.sdraft=null;render()}
  else if(a==="saves"){saveShop()}
  else if(a==="dels"){
@@ -3913,8 +3931,16 @@ async function lgGoogle(){
  }
 }
 /* signed in with Google: if the account already has a WhatsApp number it is done, otherwise ask for it once */
+/* after Google: this Gmail may be on the team or own a shop, so ask again (no reload needed) */
+async function gmailAccess(){
+ try{H.email=H.user&&typeof H.user.email==="function"?(await H.user.email())||"":""}catch(e){}
+ watchMyShops();
+ let team=false;try{team=!!(H.user&&(await H.user.canEdit())===true)}catch(e){}
+ if(team&&!S.canAdmin){LS.set("ss_gteam","1");location.reload();return}
+ render();
+}
 function googleDone(a){
- S.lg.busy=false;S.lg.email=a.email||"";
+ S.lg.busy=false;S.lg.email=a.email||"";H.email=String(a.email||"").toLowerCase();gmailAccess();
  const had=S.user&&pn(S.user.phone).length>=9?S.user:null;
  if(had){S.lg.phone=had.phone;S.lg.name=had.name||a.name||"";finishLogin(S.lg.name||a.name||"");return}
  S.lg.name=S.lg.name||a.name||"";S.lg.step="contact";S.lg.err="";render();window.scrollTo(0,0);
@@ -3940,13 +3966,13 @@ function finishLogin(name){
     On Firebase the number alone proves nothing yet (no SMS code), so the account must also be linked to the shop;
     if it is not, the account page says which shop the number belongs to and how to get linked. */
  const byPhone=ST.shops.find(x=>!!x.phone&&pn(x.phone)===pn(S.user.phone));
- if(byPhone&&(!H.scoped||(!!H.uid&&byPhone.ownerUid===H.uid))){S.shopHint=null;S.shopId=byPhone.id;S.tab="store";S.ss="orders";render();window.scrollTo(0,0);return}
+ if(byPhone&&(!H.scoped||ownShop(byPhone))){S.shopHint=null;S.shopId=byPhone.id;S.tab="store";S.ss="orders";render();window.scrollTo(0,0);return}
  if(byPhone&&H.scoped){S.shopHint=byPhone.id;S.tab="account";S.screen="home";render();window.scrollTo(0,0);return}
  S.tab=to==="account"?"account":"home";S.screen="home";render();
 }
 function shopHintHtml(){
  const s=S.shopHint&&byId(ST.shops,S.shopHint);
- if(!s||!S.user||pn(s.phone)!==pn(S.user.phone)||(H.uid&&s.ownerUid===H.uid))return "";
+ if(!s||!S.user||pn(s.phone)!==pn(S.user.phone)||ownShop(s))return "";
  const u=contactUrl(T.ctLinkShop(s.name,H.uid));
  return `<section class="card" style="border:2px solid var(--accent)"><b>🏪 ${T.shHintT(esc(s.name))}</b><span class="psub" style="font-size:13px">${T.shHintS}</span>
  <div class="aa">${u?`<a ${lnkBtn} href="${esc(u)}">💬 ${T.ctSendId}</a>`:""}<button class="sbtn" data-x="copyid">📋 ${T.ctCopy}</button></div></section>`;
@@ -4269,7 +4295,7 @@ const rtSend=guard(async()=>{
 
 /* ---- customer: account ---- */
 function accountHtml(){
- const u=S.user,L=myOrders(),shop=ST.shops.find(s=>H.scoped?(!!H.uid&&s.ownerUid===H.uid):(!!u&&!!s.phone&&pn(s.phone)===pn(u.phone)));
+ const u=S.user,L=myOrders(),shop=ST.shops.find(s=>H.scoped?ownShop(s):(!!u&&!!s.phone&&pn(s.phone)===pn(u.phone)));
  const arrow=ic("chev",18,2.2).replace("<svg",'<svg style="transform:rotate(-90deg)"');
  const addrs=S.addrs;
  return (u?`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="display:flex;flex-direction:column"><b style="font-size:18px">${esc(u.name||T.accName)}</b><span class="psub" style="font-family:var(--fn)">💬 ${esc(u.phone)}</span>${u.email?`<span class="psub" style="font-size:13px">✓ Google · ${esc(u.email)}</span>`:""}</div></div></div>
@@ -4281,7 +4307,7 @@ function accountHtml(){
  +(S.canAdmin?`<div class="card"><label class="fld">${T.accViewShop}<select data-x-sel="storeview"><option value="">${T.accPick}</option>${ST.shops.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select></label></div>
  <button class="arow2" data-act="team" style="width:100%;text-align:left;font-size:15px;font-weight:700"><span>${T.accTeam}</span>${arrow}</button>`:"")
  +`<div class="card"><b>${T.thTitle}</b><div class="seg" role="group" aria-label="${T.thTitle}">${[["light","☀️ "+T.thLight],["dark","🌙 "+T.thDark],["auto",T.thAuto]].map(([k,l])=>`<button data-x="theme" data-id="${k}" aria-pressed="${themeNow()===k}">${l}</button>`).join("")}</div></div>`
- +(u?`<button class="sbtn" data-x="logout" style="align-self:center">${T.accOut}</button>`:"");
+ +(u?`<button class="sbtn${S.confirm==="logout"?" danger":""}" data-x="logout" style="align-self:center">${S.confirm==="logout"?T.loSure:T.accOut}</button>`:"");
 }
 
 const syncOff=()=>{OFF=new Set(ST.shopOff.map(x=>x.id))};
@@ -5148,7 +5174,7 @@ app.addEventListener("click",e=>{
   case "theme":setTheme(id);rr();break;
   /* a Google account just signs out: its profile (WhatsApp number, addresses) stays for the next Google sign-in,
      and this phone starts again as a fresh visitor */
-  case "logout":{const g=!!(S.user&&S.user.email&&H.be&&H.be.signOut);S.user=null;LS.del("ss_user");S.oid=null;
+  case "logout":{if((S.canAdmin||ST.shops.some(ownShop))&&S.confirm!=="logout"){S.confirm="logout";toast(H.email?T.loWarnMail:T.loWarnId);rr();break}S.confirm="";const g=!!(S.user&&S.user.email&&H.be&&H.be.signOut);S.user=null;LS.del("ss_user");S.oid=null;
    if(g){LS.del("ss_addrs");Promise.resolve(H.be.signOut()).catch(()=>{}).then(()=>location.reload())}else{saveProfile();rr()}break}
   case "rmaddr":S.addrs.splice(+d.i,1);saveProfile();rr();break;
   case "place":placeOrder();break;
@@ -5214,6 +5240,8 @@ app.addEventListener("click",e=>{
   case "help":{const u=contactUrl(T.ctHello);if(u)window.open(u,"_blank","noopener");else toast(T.ctNone);break}
   case "copyid":{const v=H.uid||"";try{navigator.clipboard.writeText(v).then(()=>toast(T.copied),()=>toast(v))}catch(e){toast(v)}break}
   case "ctsave":guard(contactSave)();break;
+  case "tmadd":guard(tmAdd)();break;
+  case "tmrm":guard(tmRm)(id);break;
   case "report":S.oid=id;S.rt={reason:"",note:"",imgs:[],video:null};S.tab="home";S.screen="return";render();break;
   case "rtback":S.tab="orders";S.screen="home";rr();break;
   case "rtreason":S.rt.reason=d.k;rr();break;
@@ -5343,6 +5371,7 @@ app.addEventListener("input",e=>{
  if(d.si!==undefined&&S.sa){S.sa.item[d.si]=t.value;return}
  if(d.safnote!==undefined){(S.saf[d.safnote]||(S.saf[d.safnote]={}))["note"]=t.value;return}
  if(d.af!==undefined&&S.af){S.af[d.af]=t.value;if(d.af==="map")clearTimeout(S.afT),S.afT=setTimeout(()=>{if(parseLL(S.af&&S.af.map))rr()},600);return}
+ if(d.tm){S.tmNew=t.value;return}
  if(d.ctf!==undefined){(S.ctDraft||(S.ctDraft={}))[d.ctf]=t.value;return}
  if(d.rtn){const [id,f]=d.rtn.split(":");(S.rtn[id]=S.rtn[id]||{})[f]=t.value;return}
  if(d.rg){const [id,f]=d.rg.split(":");(S.rg[id]=S.rg[id]||{})[f]=t.value;return}
@@ -5640,7 +5669,11 @@ Object.assign(T,{ctT:"ຕິດຕໍ່ທີມ Sunsoul",ctS:"ມີຄຳຖ�
  ctLink:id=>"ສະບາຍດີ Sunsoul · ຂໍຜູກບັນຊີນີ້ກັບຮ້ານຂອງຂ້ອຍ · ຊື່ຮ້ານ: ... · ID: "+id,ctCopy:"ຄັດລອກ ID",ctSendId:"ສົ່ງ ID ໃຫ້ທີມ",ctNone:"ທີມຍັງບໍ່ໄດ້ຕັ້ງເບີຕິດຕໍ່",
  ccT:"ຊ່ອງທາງຕິດຕໍ່ທີມ (ລູກຄ້າ ແລະ ຮ້ານ ເຫັນ)",ccWa:"ເບີ WhatsApp ຂອງທີມ",ccPhone:"ເບີໂທ (ບໍ່ບັງຄັບ)",ccSave:"ບັນທຶກຊ່ອງທາງຕິດຕໍ່",
  ccNone:"ຍັງບໍ່ໄດ້ຕັ້ງ · ລູກຄ້າ ແລະ ຮ້ານ ຍັງບໍ່ເຫັນປຸ່ມຕິດຕໍ່ທີມ",ccBad:"ເບີບໍ່ຖືກຕ້ອງ"});
-Object.assign(T,{ownT:"ລະຫັດບັນຊີເຈົ້າຂອງຮ້ານ (ID)",ownPh:"ວາງ ID ທີ່ເຈົ້າຂອງຮ້ານສົ່ງມາ",
+Object.assign(T,{tmIn:"ເຂົ້າເປັນທີມ Sunsoul ດ້ວຍ Gmail ແລ້ວ",ownMailT:"Gmail ຂອງເຈົ້າຂອງຮ້ານ",ownMailS:"(ແນະນຳ · ເຂົ້າດ້ວຍ Gmail ນີ້ ຈາກເຄື່ອງໃດກໍເຂົ້າໜ້າຮ້ານໄດ້)",
+ tmT:"ທີມ Sunsoul (Gmail)",tmS:"ເຂົ້າສູ່ລະບົບດ້ວຍ Google ດ້ວຍ Gmail ເຫຼົ່ານີ້ ຈາກມືຖື ຫຼື ຄອມເຄື່ອງໃດກໍເປັນທີມ · ອອກຈາກລະບົບແລ້ວເຂົ້າໃໝ່ກໍບໍ່ຫາຍ",
+ tmYou:"ເຈົ້າ",tmNone:"ຍັງບໍ່ມີ",tmAdd:"ເພີ່ມ",tmBad:"Gmail ບໍ່ຖືກຕ້ອງ",
+ loWarnMail:"ອອກແລ້ວ ໜ້າທີມ / ຮ້ານ ຈະຫາຍ ຈົນກວ່າຈະເຂົ້າດ້ວຍ Google (Gmail ເດີມ) · ກົດອີກຄັ້ງເພື່ອອອກ",
+ loWarnId:"ລະວັງ: ບັນຊີນີ້ຍັງບໍ່ໄດ້ຜູກ Gmail · ອອກແລ້ວອາດເຂົ້າໜ້າທີມ / ຮ້ານ ບໍ່ໄດ້ອີກ · ກົດອີກຄັ້ງເພື່ອອອກ",loSure:"ຢືນຢັນ ອອກຈາກລະບົບ",ownT:"ລະຫັດບັນຊີເຈົ້າຂອງຮ້ານ (ID)",ownPh:"ວາງ ID ທີ່ເຈົ້າຂອງຮ້ານສົ່ງມາ",
  ownS:"ເຈົ້າຂອງຮ້ານເປີດເວັບ → ແຖບ ບັນຊີ → ສົ່ງ ID ລຸ່ມສຸດມາ · ຜູກແລ້ວ ບັນຊີນັ້ນຈະເຫັນ ແລະ ຕອບອໍເດີຂອງຮ້ານນີ້ໄດ້",ownOk:"ຜູກບັນຊີແລ້ວ",ownNo:"ຍັງບໍ່ຜູກບັນຊີ"});
 Object.assign(T,{imT:"ນຳເຂົ້າຂໍ້ມູນ (ຍ້າຍລະບົບ)",imS:"ເລືອກໄຟລ໌ທີ່ສົ່ງອອກຈາກລະບົບເກົ່າ · ສິນຄ້າ ຮ້ານ ແລະ ການຕັ້ງຄ່າ ຈະຖືກຂຽນເຂົ້າຖານຂໍ້ມູນນີ້ (ຂຽນທັບອັນທີ່ມີ ID ດຽວກັນ)",
  imPick:"ເລືອກໄຟລ໌ .json",imBad:"ໄຟລ໌ນີ້ບໍ່ແມ່ນໄຟລ໌ຂໍ້ມູນ Sunsoul",imBusy:(a,b)=>"ກຳລັງນຳເຂົ້າ "+a+" / "+b+" ...",imDone:(a,b)=>"✓ ນຳເຂົ້າແລ້ວ "+a+" / "+b,imErr:n=>n+" ລາຍການບໍ່ສຳເລັດ"});
@@ -5697,7 +5730,9 @@ render();
  /* canEdit() resolves a Promise<boolean>: it must be awaited, or every viewer reads as an editor */
  try{S.canAdmin=!!(user&&typeof user.canEdit==="function"&&(await user.canEdit())===true)}catch(e){S.canAdmin=false}
  try{H.uid=user&&typeof user.id==="function"?await user.id():null}catch(e){H.uid=null}
+ try{H.email=user&&typeof user.email==="function"?(await user.email())||"":""}catch(e){H.email=""}
  subscribe();await loadProfile();render();
+ if(LS.get("ss_gteam")){LS.del("ss_gteam");if(S.canAdmin){toast(T.tmIn);S.tab="team";S.sub="overview";render()}}
  if(assets&&typeof assets.list==="function"){try{const L=await assets.list();(L.assets||[]).forEach(a=>{if(a&&a.id&&a.url)URLMAP[a.id]=a.url});backfilled=false;MCHK.clear();render();backfillMirrors()}catch(e){}}
 })();
 </script>

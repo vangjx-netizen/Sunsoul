@@ -51,13 +51,27 @@ export function makeBackend(fb, config) {
   });
   const db = { collection: collApi, doc: docApi };
 
-  // Team members are listed in admins/{uid}; the security rules use the same list.
-  let adminP = null;
-  const isAdmin = () => adminP || (adminP = ready.then(async u => {
-    try { return (await fb.getDoc(fb.doc(fs, "admins/" + u.uid))).exists(); } catch (e) { return false; }
-  }));
+  // the e-mail of a Google sign-in (always verified by Google), lower-case; "" for anonymous visitors
+  const verifiedEmail = u => (u && u.emailVerified && u.email ? String(u.email).toLowerCase() : "");
+  // Team members are listed in admins/{uid} or, by Gmail, in teamEmails/{email}; the security rules use the same lists.
+  // remembered per account + e-mail: linking Google adds an e-mail, so the answer is asked again
+  let adminP = null, adminKey = "";
+  const isAdmin = () => {
+    const cu = auth.currentUser, key = cu ? cu.uid + "|" + verifiedEmail(cu) : "";
+    if (adminP && key === adminKey) return adminP;
+    adminKey = key;
+    return adminP = ready.then(async u => {
+    try { if ((await fb.getDoc(fb.doc(fs, "admins/" + u.uid))).exists()) return true; } catch (e) { /* not by uid */ }
+    const em = verifiedEmail(auth.currentUser || u);
+    if (!em) return false;
+    // the rules read the e-mail from the sign-in token; right after linking Google it may be missing until refreshed
+    try { await (auth.currentUser || u).getIdToken(true); } catch (e) { /* offline: try with the token we have */ }
+    try { return (await fb.getDoc(fb.doc(fs, "teamEmails/" + em))).exists(); } catch (e) { return false; }
+  });
+  };
   const user = {
     id: async () => (await ready).uid,
+    email: async () => verifiedEmail(auth.currentUser || await ready),
     canEdit: () => isAdmin(),
     isOwner: () => isAdmin(),
   };

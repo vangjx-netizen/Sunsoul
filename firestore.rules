@@ -12,12 +12,19 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
     function myPhone() { return request.auth.token.get('phone_number', ''); }
-    function isTeam() { return signedIn() && exists(/databases/$(database)/documents/admins/$(me())); }
+    // a Google sign-in carries a verified e-mail; team members and shop owners can be named by Gmail,
+    // so their access follows them to any phone or computer and survives logging out
+    function myEmail() { return request.auth.token.get('email_verified', false) == true ? request.auth.token.get('email', '') : ''; }
+    function isTeam() {
+      return signedIn() && (exists(/databases/$(database)/documents/admins/$(me()))
+        || (myEmail() != '' && exists(/databases/$(database)/documents/teamEmails/$(myEmail()))));
+    }
     function shopPath(id) { return /databases/$(database)/documents/shops/$(id); }
     function ownsShop(id) {
       return signedIn() && id is string && id != '' && exists(shopPath(id))
         && (get(shopPath(id)).data.get('ownerUid', '') == me()
-            || (myPhone() != '' && get(shopPath(id)).data.get('phoneE164', '') == myPhone()));
+            || (myPhone() != '' && get(shopPath(id)).data.get('phoneE164', '') == myPhone())
+            || (myEmail() != '' && get(shopPath(id)).data.get('ownerEmail', '') == myEmail()));
     }
     function newData() { return request.resource.data; }
     function same(f) { return newData().get(f, null) == resource.data.get(f, null); }
@@ -32,6 +39,7 @@ service cloud.firestore {
     match /imgm/{id}     { allow read: if true; allow write: if isTeam(); }
     match /shopPrivate/{id} { allow read, write: if isTeam(); }   // shops' bank accounts
     match /admins/{uid}  { allow get: if signedIn() && me() == uid; }
+    match /teamEmails/{email} { allow get: if signedIn() && (myEmail() == email || isTeam()); allow list, write: if isTeam(); }
 
     // products a shop lists itself
     match /shopProducts/{id} {

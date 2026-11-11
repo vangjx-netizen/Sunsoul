@@ -25,6 +25,19 @@ let fails = 0, outs = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL
   ok(a.uid === 'anon1' && a.email === 'noy@gmail.com' && a.name === 'Noy' && !a.switched && t.calls.join() === 'link:anon1', 'Google is linked to the same account (uid kept, orders and addresses stay)');
   t = mk('auth/credential-already-in-use'); a = await t.be.google();
   ok(a.uid === 'g9' && a.switched && t.calls.join() === 'link:anon1,cred', 'Google account used on another phone → switches to that account');
+  {
+    // team by Gmail: admins/{uid} missing, teamEmails/{email} present
+    const asked = [];
+    const u = { uid: 'dev9', email: 'Boss@Gmail.com', emailVerified: true, providerData: [{ providerId: 'google.com' }], getIdToken: async () => 'x' };
+    const fb = { initializeApp: () => ({}), getFirestore: () => ({}), getAuth: () => ({ currentUser: u }), onAuthStateChanged: (a, cb) => { setTimeout(() => cb(u)); return () => {}; }, signInAnonymously: async () => {},
+      doc: (fs, p) => p, getDoc: async p => { asked.push(p); return { exists: () => p === 'teamEmails/boss@gmail.com' }; } };
+    const be = makeBackend(fb, { storageBucket: 'b' });
+    const usr = await be.use('user');
+    ok(await usr.canEdit() === true && asked.join() === 'admins/dev9,teamEmails/boss@gmail.com' && await usr.email() === 'boss@gmail.com', 'team by Gmail: recognised on a new device (lower-cased e-mail)');
+    const anon = { uid: 'a1', providerData: [] };
+    const fb2 = { ...fb, getAuth: () => ({ currentUser: anon }), onAuthStateChanged: (a, cb) => { setTimeout(() => cb(anon)); return () => {}; }, getDoc: async () => ({ exists: () => false }) };
+    ok(await (await makeBackend(fb2, { storageBucket: 'b' }).use('user')).canEdit() === false, 'anonymous visitor: not team');
+  }
   t = mk('auth/operation-not-allowed'); let err = ''; try { await t.be.google(); } catch (e) { err = e.code; }
   ok(err === 'auth/operation-not-allowed', 'Google not enabled in Firebase → error reaches the page');
 

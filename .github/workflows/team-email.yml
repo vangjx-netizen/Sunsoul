@@ -1,0 +1,27 @@
+# Adds a Gmail to the Sunsoul team. Run it from GitHub: Actions → "Add a team Gmail" → Run workflow.
+# Only needed when nobody on the team can sign in to add people in the page's Settings.
+name: Add a team Gmail
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Gmail to add to the team"
+        required: true
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Hide the e-mail in the log
+        run: echo "::add-mask::${{ inputs.email }}"
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@13
+      - name: Add to the team
+        run: node tools/add_team_email.js
+        env:
+          EMAIL: ${{ inputs.email }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

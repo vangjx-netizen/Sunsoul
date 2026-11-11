@@ -24,6 +24,9 @@ const deny = (name, p) => check(name, p, false);
     await env.withSecurityRulesDisabled(async c => {
       const d = c.firestore();
       await setDoc(doc(d, 'admins/team1'), { name: 'Vang' });
+      await setDoc(doc(d, 'teamEmails/boss@gmail.com'), { addedAt: 1 });
+      await setDoc(doc(d, 'shops/s3'), { name: 'Mail shop', ownerEmail: 'owner@gmail.com' });
+      await setDoc(doc(d, 'orders/o3'), { no: 'SS-3', uid: 'someone', shopId: 's3', pid: 'p1', vlabel: 'M', qty: 1, price: 1, status: 'await_shop', createdAt: 1, history: [] });
       await setDoc(doc(d, 'shops/s1'), { name: 'Kham', ownerUid: 'shopper', phoneE164: '+8562055557777' });
       await setDoc(doc(d, 'shops/s2'), { name: 'Other', ownerUid: 'other-shop' });
       await setDoc(doc(d, 'products/p1'), { name: 'Shirt', shopId: 's1' });
@@ -55,6 +58,18 @@ const deny = (name, p) => check(name, p, false);
   await deny('stranger cannot read someone’s order', getDoc(doc(stranger, 'orders/o1')));
   await allow('shop (ownerUid) reads its order', getDoc(doc(shop, 'orders/o1')));
   await allow('shop (verified phone) reads its order', getDoc(doc(shopByPhone, 'orders/o1')));
+  // team and shop owners by Gmail (a Google sign-in carries a verified e-mail)
+  const boss = as('any-device-uid', { email: 'boss@gmail.com', email_verified: true });
+  const fakeBoss = as('other-uid', { email: 'boss@gmail.com', email_verified: false });
+  const mailOwner = as('owner-device', { email: 'owner@gmail.com', email_verified: true });
+  await allow('team by Gmail: reads any order, from any device', getDoc(doc(boss, 'orders/o2')));
+  await deny('an unverified e-mail is not team', getDoc(doc(fakeBoss, 'orders/o2')));
+  await allow('team by Gmail adds a team member', setDoc(doc(boss, 'teamEmails/new@gmail.com'), { addedAt: 2 }));
+  await deny('non-team cannot add themselves to the team', setDoc(doc(mailOwner, 'teamEmails/owner@gmail.com'), { addedAt: 2 }));
+  await allow('a person can check whether their own Gmail is on the team', getDoc(doc(mailOwner, 'teamEmails/owner@gmail.com')));
+  await deny('…but not read someone else’s entry', getDoc(doc(mailOwner, 'teamEmails/boss@gmail.com')));
+  await allow('shop owner by Gmail reads its order', getDoc(doc(mailOwner, 'orders/o3')));
+  await deny('shop owner by Gmail cannot read another shop’s order', getDoc(doc(mailOwner, 'orders/o1')));
   await deny('another shop cannot read it', getDoc(doc(as('other-shop'), 'orders/o1')));
   await allow('buyer lists own orders', getDocs(query(collection(buyer, 'orders'), where('uid', '==', 'buyer'))));
   await deny('visitor cannot list all orders', getDocs(collection(stranger, 'orders')));
