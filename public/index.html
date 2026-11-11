@@ -4780,7 +4780,7 @@ function tRunHtml(){
   :`<div class="photos">${D.photos.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div><button class="sbtn" data-x="dphoto" data-id="${esc(o.id)}">${ic("camera",16,2)} ${T.dPhoto}</button>`}
   ${o.kind==="carrier"?`<button class="cta" style="background:var(--green)" data-x="dok" data-id="${esc(o.id)}" ${!cod||D.cod?"":"disabled"}>${T.dDone}</button>`:doorBtns(o,D,cod)}</section>`;
  }).join("");
- return `${bad?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.unverified(bad)}</div>`:""}<h2 class="sec">${T.rPick}</h2>${ph||`<div class="empty">${T.rNone}</div>`}<h2 class="sec">${T.rDeliver}</h2>${dl||`<div class="empty">${T.dNone}</div>`}`;
+ return `${bad?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.unverified(bad)}</div>`:""}<h2 class="sec">${T.rPick}</h2>${ph||`<div class="empty">${T.rNone}</div>`}<h2 class="sec">${T.rDeliver}</h2>${dl||`<div class="empty">${T.dNone}</div>`}${undoListHtml()}`;
 }
 const pickOk=guard(async k=>{
  const P=pkOf(k),L=ST.orders.filter(o=>o.status==="await_pickup"&&cleared(o)&&dMode(o)!=="shop"&&(o.shopId||norm(o.shopName)||"_")===k);
@@ -4804,6 +4804,30 @@ function doorBtns(o,D,cod){
   <button class="cta" style="background:var(--green)" data-x="dok" data-id="${id}" ${off}>✓ ${T.dChecked}</button>
   <div class="aa"><button class="sbtn" data-x="dabsent" data-id="${id}" ${off}>${T.dAbsent}</button><button class="sbtn danger" data-x="drefuse" data-id="${id}">✕ ${T.dRefuse}</button></div>`;
 }
+/* a wrong tap on "delivered" can be taken back for 12 hours, as long as nothing has happened since:
+   the customer has not confirmed it themselves, the shop is not paid, and no case has gone further than
+   the one a refusal at the door opened */
+const canUndo=o=>{
+ if(o.status!=="delivered"||!o.deliveredAt||Date.now()-o.deliveredAt>12*3600000||o.paidOutAt)return false;
+ if(o.receivedBy==="customer")return false;
+ const c=caseOf(o);return !c||(c.atDoor&&c.status==="open");
+};
+function undoListHtml(){
+ const L=ST.orders.filter(canUndo).sort((a,b)=>b.deliveredAt-a.deliveredAt);
+ if(!L.length)return "";
+ return `<h2 class="sec">${T.unT}</h2><div class="psub" style="font-size:12px;margin-top:-6px">${T.unS}</div>${L.map(o=>`<section class="card" style="gap:6px"><div style="display:flex;justify-content:space-between;gap:8px"><b>#${esc(o.no)} · ${esc((o.cust&&o.cust.name)||"")}</b><span class="chip ${o.refusedAt?"r":"g"}">${o.refusedAt?T.unRef:o.doorChecked?T.unChk:T.unDone}</span></div>
+  <span class="psub" style="font-size:13px">${itemLine(o)} · ${hm(o.deliveredAt)}</span>
+  <button class="sbtn${S.confirm==="un"+o.id?" danger":""}" data-x="undodel" data-id="${esc(o.id)}" style="align-self:flex-start">${S.confirm==="un"+o.id?T.unSure:"↩ "+T.unBtn}</button></section>`).join("")}`;
+}
+const undoDeliver=guard(async id=>{
+ const o=byId(ST.orders,id);if(!o||!canUndo(o))throw new Error(T.stale);
+ if(S.confirm!=="un"+id){S.confirm="un"+id;rr();return}
+ S.confirm="";
+ const c=caseOf(o);if(c&&c.atDoor&&c.status==="open")await remove("cases",c.id);
+ const next={...strip(o),status:"shipping",history:[...(o.history||[]),{s:"shipping",at:Date.now(),by:"team",undo:true}]};
+ for(const k of ["deliveredAt","receivedAt","receivedBy","doorChecked","refusedAt","caseId"])delete next[k];
+ await put("orders",id,next);toast(T.unDoneT);
+});
 const deliverOk=guard(async(id,how)=>{
  const o=byId(ST.orders,id),D=S.hd["d"+id]||{photos:[]};if(!o)return;
  if(isCod(o)){if(!D.cod)return;if(o.status!=="shipping")throw new Error(T.stale);await lockOrder(o,{codAt:Date.now()})}
@@ -5322,6 +5346,7 @@ app.addEventListener("click",e=>{
   case "hok":handOk(id);break;
   case "dphoto":{const D=S.hd["d"+id];if(!H.assets){D.test=true;rr();break}pickUpload(true).then(ids=>{if(ids){D.photos.push(...ids);rr()}});break}
   case "dok":deliverOk(id,"checked");break;
+  case "undodel":undoDeliver(id);break;
   case "dabsent":deliverOk(id,"absent");break;
   case "drefuse":{const D=S.hd["d"+id];if(D){D.refuse=true;rr()}break}
   case "drefx":{const D=S.hd["d"+id];if(D){D.refuse=false;rr()}break}
@@ -5623,7 +5648,8 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{stpAll:"ຈົບເຄສແລ້ວ",stpDecided:"ທີມຕັດສິນ",stpCustSend:"ລູກຄ້າສົ່ງເຄື່ອງຄືນມາ Sunsoul",stpTeamGot:"ທີມຮັບ ແລະ ກວດເຄື່ອງ",stpPickup:"ທີມໄປຮັບເຄື່ອງຄືນຈາກລູກຄ້າ",
+Object.assign(T,{unT:"ສົ່ງແລ້ວ ລ່າສຸດ",unS:"ກົດຜິດ? ຍ້ອນກັບໄດ້ພາຍໃນ 12 ຊົ່ວໂມງ (ຖ້າລູກຄ້າຍັງບໍ່ໄດ້ກົດຢືນຢັນເອງ)",unBtn:"ຍ້ອນກັບ · ຍັງບໍ່ຮອດ",
+ unSure:"ກົດອີກຄັ້ງເພື່ອຍ້ອນກັບ",unRef:"ລູກຄ້າບໍ່ຮັບ",unChk:"ກວດແລ້ວ · ຮັບແລ້ວ",unDone:"ສົ່ງຮອດແລ້ວ",unDoneT:"ຍ້ອນກັບແລ້ວ · ອໍເດີກັບໄປ “ກຳລັງສົ່ງ”",stpAll:"ຈົບເຄສແລ້ວ",stpDecided:"ທີມຕັດສິນ",stpCustSend:"ລູກຄ້າສົ່ງເຄື່ອງຄືນມາ Sunsoul",stpTeamGot:"ທີມຮັບ ແລະ ກວດເຄື່ອງ",stpPickup:"ທີມໄປຮັບເຄື່ອງຄືນຈາກລູກຄ້າ",
  stpTookBack:"ທີມເອົາເຄື່ອງກັບແລ້ວ (ຕອນສົ່ງ)",stpRefund:a=>"ໂອນເງິນຄືນລູກຄ້າ "+a+" ກີບ",stpToShop:"ສົ່ງເຄື່ອງຄືນໃຫ້ຮ້ານ",stpShopReady:"ຮ້ານກຽມສິນຄ້າໃໝ່",stpExDone:"ປ່ຽນສິນຄ້າໃຫ້ລູກຄ້າ",
  stpWho:{cust:"ລໍລູກຄ້າ",team:"ລໍທີມ Sunsoul",shop:"ລໍຮ້ານ"},stpBy:d=>"ພາຍໃນ "+d,stpNext:"ຕໍ່ໄປ",
  puT:"ທີມຈະມາຮັບເຄື່ອງຄືນທີ່ເຮືອນ",puS:"ທີມຈະໂທນັດກ່ອນມາ · ກະລຸນາແພັກເຄື່ອງໃຫ້ຄົບ (ກ່ອງ, ອຸປະກອນ) · ຮັບເຄື່ອງແລ້ວ ໂອນເງິນຄືນພາຍໃນ 3 ມື້ເຮັດການ",
