@@ -3710,7 +3710,7 @@ const feeMain=o=>{
    "shop"  shop outside the capital → the shop packs and hands it to a carrier itself; team never picks up
    "team"  shop in the capital, customer in a province → team hands it to a carrier
    For "shop" and "team" the customer pays the carrier at the destination branch, so our fee is 0. */
-const dMode=o=>!shopLocal(shopOf(o))?"shop":o.kind==="carrier"?"team":"door";
+const dMode=o=>!shopLocal(shopOf(o))||o.selfShip?"shop":o.kind==="carrier"?"team":"door";
 /* door delivery needs a shop the team collects from AND a customer inside the delivery zone
    (straight-line distance from the zone centre). Unknown customer location: shown as door, checked at checkout. */
 const zoneDist=ll=>{const c=parseLL(DEL().zoneLL);return c&&ll?hav(c,ll):null};
@@ -4149,8 +4149,8 @@ function orderDetailHtml(o){
  if(!o)return `<div class="empty">${S.ready?T.empty:T.loading}</div>`;
  const R=RUL();
  if(o.status==="declined"||o.status==="cancelled"){
-  return `<section class="card" style="text-align:center;align-items:center">${ic("x",34,2.2)}<b style="font-size:18px">${o.status==="declined"?T.soldOut:(o.cancelWhy==="refund"?T.cxRefund:o.cancelWhy==="pay"?T.cxPay:o.cancelWhy==="team"?T.cxTeam:o.cancelWhy==="customer"?T.cxCust:T.cxShop)}</b>
-  <span class="psub">${o.status==="declined"?T.soldOutSub:""}<br><b>${gotOf(o)>0?(o.refundedAt||(LK(o)||{}).refundedAt?T.rfDone(gotOf(o)):T.rfWait(gotOf(o))):T.noPayHint}</b></span></section>${similarHtml(o)}
+  return `<section class="card" style="text-align:center;align-items:center">${ic("x",34,2.2)}<b style="font-size:18px">${o.status==="declined"?T.soldOut:(o.cancelWhy==="refund"?T.cxRefund:o.cancelWhy==="pay"?T.cxPay:o.cancelWhy==="team"?T.cxTeam:o.cancelWhy==="customer"?T.cxCust:o.cancelWhy==="noship"?T.cxNoShip:T.cxShop)}</b>
+  <span class="psub">${o.status==="declined"?T.soldOutSub:""}<br><b>${gotOf(o)>0?(o.refundedAt||(LK(o)||{}).refundedAt?T.rfDone(gotOf(o)):T.rfWait(gotOf(o))):T.noPayHint}</b></span>${o.refundProof?`<div style="display:flex;gap:10px;align-items:center">${thumb(o.refundProof)}<span class="psub" style="font-size:12px">${T.rfProofCust}</span></div>`:""}</section>${similarHtml(o)}
   <button class="cta" data-x="gohome2">${T.searchAgain}</button>`;
  }
  let body=refShow(o)+timelineHtml(o);
@@ -4416,7 +4416,7 @@ Object.assign(T,{spBtn:"+ ລົງສິນຄ້າໃໝ່",spNote:"ກົ�
 /* ---- state for the new screens ---- */
 Object.assign(S,{
  user:(()=>{try{return JSON.parse(LS.get("ss_user")||"null")}catch(e){return null}})(),
- lg:{step:"phone",phone:"",code:"",err:""},after:null,oid:null,rt:{reason:"size",note:"",imgs:[]},rtn:{},rg:{},
+ lg:{step:"phone",phone:"",code:"",err:""},after:null,oid:null,rt:{reason:"size",note:"",imgs:[]},rtn:{},rg:{},rfProof:{},
  ss:"orders",shopId:"",sp:null,cart:loadCart(),coCart:false,chk:{},pk:{},hd:{},nf:{},vq:0,cid:null
 });
 const rr=()=>render(true);
@@ -4441,7 +4441,10 @@ function sCard(o){
  return `<section class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>#${esc(o.no)}</b>
  ${wait?`<span class="chip a">${expired?T.shExpired:T.shAnswerIn+" "+cdSpan(o.shopDeadline)}</span>`:o.status==="declined"?`<span class="chip r">${T.shDec}</span>`:`<span class="chip g">${o.status==="await_pay"?T.shAcc:esc(T.st[o.status]||o.status)}</span>`}</div>
  <div class="arow" style="border:0;padding:0"><div class="th">${thumb(o.img,"th")}</div><div class="am"><b>${esc(o.pname)}</b><div>${esc(o.vlabel)} · ${o.qty||1}</div><div style="font-family:var(--fn)">${fmt(orderGoods(o))} ${T.kip}</div></div></div>${refShow(o)}
- ${wait?`<div class="row2b" style="grid-template-columns:1fr 1fr"><button class="btn2 pri" style="background:var(--green)" data-x="syes" data-id="${esc(o.id)}">${T.shYes}</button><button class="btn2" data-x="sno" data-id="${esc(o.id)}">${T.shNo}</button></div><p class="psub" style="margin:0;font-size:12px">${T.shAuto}</p>`
+ ${wait&&o.askSelfShip&&!o.selfShip?`<div class="note" style="text-align:left;border:2px solid var(--accent)">🚚 <b>${T.ssT}</b><br><span style="font-size:13px">${T.ssS(esc(o.addr||""))}</span></div>
+  <button class="cta" style="background:var(--green)" data-x="sself" data-id="${esc(o.id)}">✓ ${T.ssYes}</button>
+  <button class="sbtn danger" data-x="snoship" data-id="${esc(o.id)}">${S.confirm==="ns"+o.id?T.ssNoSure:"✕ "+T.ssNo}</button>`
+ :wait?`<div class="row2b" style="grid-template-columns:1fr 1fr"><button class="btn2 pri" style="background:var(--green)" data-x="syes" data-id="${esc(o.id)}">${T.shYes}</button><button class="btn2" data-x="sno" data-id="${esc(o.id)}">${T.shNo}</button></div><p class="psub" style="margin:0;font-size:12px">${T.shAuto}</p>`
   :o.status==="await_pay"&&!o.slipId?`<div class="note" style="background:var(--green-bg);color:var(--green)">${T.shPrep}</div><button class="sbtn" data-x="sundo" data-id="${esc(o.id)}">${T.shUndo}</button>`
   :o.status==="declined"?`<div class="note">${T.shDecNote}</div><div class="aa"><button class="sbtn" data-x="sundo" data-id="${esc(o.id)}">${T.shUndo}</button><button class="sbtn danger" data-x="shide" data-id="${esc(o.id)}">${S.confirm==="sh"+o.id?T.hideSure:T.hideOne}</button></div>`:""}</section>`;
 }
@@ -4673,6 +4676,7 @@ function tOverviewHtml(){
    :`<label class="fld">${T.feeAmt}<input data-nf="${esc(o.id)}:fee" inputmode="numeric" value="${esc(f.fee)}" style="font-family:var(--fn)"></label>`}
   <button class="cta" data-x="nfok" data-id="${esc(o.id)}">${T.setFee}</button></section>`);
  });
+ if(custCxSlip().length)al.push(`<section class="card" style="border:2px solid var(--bad)"><b>🔔 ${T.cxsHome(custCxSlip().length)}</b><button class="sbtn" data-x="tsub" data-id="verify">${T.cxsGo}</button></section>`);
  {const D=ST.cases.filter(c=>c.status==="closed"&&!caseDone(c)),n=f=>D.filter(f).length,rf=refundCases(),late=rf.filter(c=>Date.now()>refundBy(c)).length;
   const rows=[[n(c=>rmode(c)==="pickup"&&!c.retGotAt),T.tdPick],[n(c=>rmode(c)==="carrier"&&!c.retSentAt),T.tdWait],[n(c=>rmode(c)==="carrier"&&c.retSentAt&&!c.retGotAt),T.tdRecv],
    [rf.length,T.tdRefund],[late,T.tdLate],[n(c=>c.owner==="store"&&rmode(c)&&c.retGotAt&&!c.retShopAt),T.tdShop],[n(c=>c.remedy==="exchange"&&!c.exDoneAt),T.tdEx]].filter(r=>r[0]);
@@ -4692,7 +4696,7 @@ function tOverviewHeader(){
 /* verify slips */
 function tVerifyHtml(){
  const Q=ST.orders.filter(o=>o.status==="await_verify").sort((a,b)=>(a.paidAt||0)-(b.paidAt||0));
- if(!Q.length)return `<div class="empty">${T.vNone}</div>${tOwedHtml()}`;
+ if(!Q.length)return `${cxSlipHtml()}<div class="empty">${T.vNone}</div>${tOwedHtml()}`;
  if(S.vq>=Q.length)S.vq=0;
  const o=Q[S.vq],G=slipGroup(o),L=LK(o),tot=G.reduce((a,x)=>a+owedOf(x),0),gotB=G.reduce((a,x)=>a+gotOf(x),0),olds=G.flatMap(x=>(LK(x)&&LK(x).slips)||[]).filter((v,i,A)=>v.id&&A.findIndex(y=>y.id===v.id)===i),ot=G.reduce((a,x)=>a+orderTotal(x),0),ch=S.chk[o.id]||[0,0,0,0],n=ch.filter(Boolean).length,all=n===4;
  return `<section class="card"><div class="slip">${o.slipId?thumb(o.slipId,"slipimg"):`<div class="noimg" style="height:140px"><span>${T.vNoImg}</span></div>`}</div>
@@ -4752,6 +4756,16 @@ const vReject=guard(async(id,r,amt,note)=>{
  S.vrej=null;S.vr=null;toast(T.vBadMsg);
 });
 /* team: customers who paid part and still owe, or ran out of time — follow up or refund */
+/* customers who cancelled after the team flagged their slip: the team is told, and acknowledges */
+const custCxSlip=()=>ST.orders.filter(o=>o.status==="cancelled"&&o.cancelWhy==="customer"&&!!o.slipWhy&&!o.teamCxSeen);
+function cxSlipHtml(){
+ const L=custCxSlip();if(!L.length)return "";
+ return `<h2 class="sec" style="color:var(--bad)">🔔 ${T.cxsT}</h2>${L.map(o=>{const h=(o.history||[]).filter(x=>x.s==="cancelled").slice(-1)[0]||{};return `<section class="card" style="border:2px solid var(--bad)">
+  <div style="display:flex;justify-content:space-between;gap:8px"><b>#${esc(o.no)} · ${esc((o.cust&&o.cust.name)||"")}</b><span class="chip r">${T.cxsChip}</span></div>
+  <div class="psub" style="font-size:13px">${T.cxsWhy}: ${esc(T.sjR[(o.slipWhy||{}).r]||"")}${h.at?" · "+T.cxsAt(dm(h.at)+" "+hm(h.at)):""}</div>
+  <div class="psub" style="font-size:13px">${gotOf(o)>0?`<b style="color:var(--bad)">${T.cxsGot(fmt(gotOf(o)))}</b>`:T.cxsNoMoney}</div>
+  <button class="sbtn" data-x="cxsseen" data-id="${esc(o.id)}" style="align-self:flex-start">✓ ${T.scSeen}</button></section>`}).join("")}`;
+}
 function tOwedHtml(){
  const L=ST.orders.filter(o=>o.status==="await_pay"&&o.slipRejected).sort((a,b)=>(a.payDeadline||0)-(b.payDeadline||0));
  const R=ST.orders.filter(o=>o.status==="cancelled"&&gotOf(o)>0&&!(LK(o)||{}).refundedAt);
@@ -4759,13 +4773,31 @@ function tOwedHtml(){
  return `<h2 class="sec">${T.owT}</h2>${L.map(o=>`<section class="card"><div style="display:flex;justify-content:space-between"><b>#${esc(o.no)} · ${esc(o.cust.name)}</b><span class="chip ${o.payDeadline<Date.now()?"r":"a"}">${o.payDeadline<Date.now()?T.owLate:cdSpan(o.payDeadline)}</span></div>
   <div class="psub" style="font-size:13px">${esc(T.sjR[(o.slipWhy||{}).r]||"")} · ${T.sjGot} ${fmt(gotOf(o))} · ${T.sjLeft} ${fmt(owedOf(o))}</div>
   <div class="aa"><a class="sbtn" href="tel:${esc(String(o.cust.phone).replace(/[^\d+]/g,""))}" style="color:inherit;text-decoration:none">${ic("phone2",14,2)} ${esc(o.cust.phone)}</a><button class="sbtn danger" data-x="owcx" data-id="${esc(o.id)}">${S.confirm==="ow"+o.id?T.owCxSure(gotOf(o)):T.owCx}</button></div></section>`).join("")}
- ${R.map(o=>`<section class="card" style="border:2px solid var(--bad)"><b>${T.owRefund(o.no,gotOf(o))}</b><div class="psub" style="font-size:13px">${esc(o.cust.name)} · ${esc(o.cust.phone)}</div><button class="sbtn" data-x="owdone" data-id="${esc(o.id)}">✓ ${T.owRefunded}</button></section>`).join("")}`;
+ ${R.map(o=>`<section class="card" style="border:2px solid var(--bad)"><b>${T.owRefund(o.no,gotOf(o))}</b><div class="psub" style="font-size:13px">${esc(o.cust.name)} · ${esc(o.cust.phone)}</div>${rfProofHtml("o"+o.id,"owdone",o.id,T.owRefunded)}</section>`).join("")}`;
 }
 const owCancel=guard(async id=>{const o=byId(ST.orders,id);if(!o)return;if(S.confirm!=="ow"+id){S.confirm="ow"+id;rr();return}S.confirm="";
  await setOrder(o,{status:"cancelled",cancelWhy:gotOf(o)>0?"refund":"pay"},"team","await_pay");toast(T.owCxDone)});
-const owRefunded=guard(async id=>{const o=byId(ST.orders,id);if(!o)return;await lockOrder(o,{refundedAt:Date.now()});await setOrder(o,{refundedAt:Date.now(),custSeen:false},"team")});
+const owRefunded=guard(async id=>{const o=byId(ST.orders,id);if(!o)return;const pf=S.rfProof["o"+id];if(!pf)throw new Error(T.rfNeedProof);
+ const now=Date.now();await lockOrder(o,{refundedAt:now,refundProof:pf});await setOrder(o,{refundedAt:now,refundProof:pf,custSeen:false},"team");delete S.rfProof["o"+id]});
+/* a refund is only marked done with a photo of the transfer slip; the customer sees it */
+function rfProofHtml(k,act,id,label){
+ const pf=S.rfProof[k];
+ return pf?`<div style="display:flex;gap:10px;align-items:center">${thumb(pf)}<span class="psub" style="font-size:12px">${T.rfProofL}</span><button class="sbtn" data-x="rfpick" data-k="${esc(k)}">${T.rfProofChange}</button></div>
+  <button class="cta" style="background:var(--green)" data-x="${act}" data-id="${esc(id)}">✓ ${label}</button>`
+  :`<button class="cta" data-x="rfpick" data-k="${esc(k)}">📎 ${T.rfProofBtn}</button><span class="psub" style="font-size:12px">${T.rfProofS}</span>`;
+}
 /* pickup / delivery run */
 function pkOf(k){return S.pk[k]||(S.pk[k]={checks:{},photos:[],test:false})}
+/* new carrier orders the team would have to collect: the team can ask the shop to pack and ship them itself */
+function askShipHtml(){
+ const L=ST.orders.filter(o=>o.status==="await_shop"&&o.kind==="carrier"&&shopLocal(shopOf(o))&&!o.selfShip).sort(byOld);
+ if(!L.length)return "";
+ return `<h2 class="sec">${T.asT}</h2><div class="psub" style="font-size:12px;margin-top:-6px">${T.asS}</div>${L.map(o=>{const sh=shopOf(o)||{};return `<section class="card" style="gap:6px">
+  <div style="display:flex;justify-content:space-between;gap:8px"><b>#${esc(o.no)} · ${esc(o.shopName||"")}</b>${o.askSelfShip?`<span class="chip a">${T.asAsked}</span>`:""}</div>
+  <span class="psub" style="font-size:13px">📍 ${esc(sh.addr||sh.prov||"")} · ${itemLine(o)}</span>
+  ${o.askSelfShip?`<button class="sbtn" data-x="askselfx" data-id="${esc(o.id)}" style="align-self:flex-start">${T.asUndo}</button>`
+  :`<button class="sbtn" data-x="askself" data-id="${esc(o.id)}" style="align-self:flex-start">🚚 ${T.asBtn}</button>`}</section>`}).join("")}`;
+}
 function tRunHtml(){
  const pick=ST.orders.filter(o=>o.status==="await_pickup"&&cleared(o)&&dMode(o)!=="shop").sort(byOld),ship=ST.orders.filter(o=>o.status==="shipping"&&cleared(o)&&dMode(o)!=="shop").sort(byOld);
  const bad=ST.orders.filter(o=>(o.status==="await_pickup"||o.status==="shipping")&&!cleared(o)).length;
@@ -4797,7 +4829,7 @@ function tRunHtml(){
   :`<div class="photos">${D.photos.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div><button class="sbtn" data-x="dphoto" data-id="${esc(o.id)}">${ic("camera",16,2)} ${T.dPhoto}</button>`}
   ${o.kind==="carrier"?`<button class="cta" style="background:var(--green)" data-x="dok" data-id="${esc(o.id)}" ${!cod||D.cod?"":"disabled"}>${T.dDone}</button>`:doorBtns(o,D,cod)}</section>`;
  }).join("");
- return `${bad?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.unverified(bad)}</div>`:""}<h2 class="sec">${T.rPick}</h2>${ph||`<div class="empty">${T.rNone}</div>`}<h2 class="sec">${T.rDeliver}</h2>${dl||`<div class="empty">${T.dNone}</div>`}${undoListHtml()}`;
+ return `${askShipHtml()}${bad?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.unverified(bad)}</div>`:""}<h2 class="sec">${T.rPick}</h2>${ph||`<div class="empty">${T.rNone}</div>`}<h2 class="sec">${T.rDeliver}</h2>${dl||`<div class="empty">${T.dNone}</div>`}${undoListHtml()}`;
 }
 const pickOk=guard(async k=>{
  const P=pkOf(k),L=ST.orders.filter(o=>o.status==="await_pickup"&&cleared(o)&&dMode(o)!=="shop"&&(o.shopId||norm(o.shopName)||"_")===k);
@@ -4895,7 +4927,7 @@ function tRefundsHtml(){
  return `<h2 class="sec">${T.rfT}</h2>${L.map(c=>{const k=ST.kyc[c.kycId]||kycOf(c.kycId)||{};return `<section class="card" style="border:2px solid var(--bad)"><b>${esc(c.no)} · ${T.rfAmt(fmt(c.refund||0))}</b>
   <span class="psub" style="font-size:13px">${esc((c.cust&&c.cust.name)||"")} · ${c.owner==="store"?T.rfByShop:T.rfByUs}</span>
   <div class="xt" style="border:0"><div><span>${T.sBank}</span><b>${esc(k.rbank||"—")}</b></div><div><span>${T.sAcc}</span><b style="font-family:var(--fn)">${esc(k.racct||"—")}</b></div><div><span>${T.saAccName}</span><b>${esc(k.rname||"—")}</b></div></div>
-  <button class="cta" style="background:var(--green)" data-x="rfdone" data-id="${esc(c.id)}">✓ ${T.rfDone2}</button></section>`}).join("")}<h2 class="sec">${T.csTitle}</h2>`;
+  ${rfProofHtml("c"+c.id,"rfdone",c.id,T.rfDone2)}</section>`}).join("")}<h2 class="sec">${T.csTitle}</h2>`;
 }
 function retTeamHtml(c,o){
  const G=S.rg[c.id]||{},due=dueOf(o),pu=rmode(c)!=="carrier";
@@ -4928,7 +4960,7 @@ function orderEvents(o,c){
 const photoRow=(label,ids)=>`<div><span class="psub" style="font-size:12px">${label}</span><div class="photos" style="grid-template-columns:repeat(3,minmax(0,1fr))">${(ids||[]).filter(Boolean).map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")||`<div class="psub" style="font-size:12px;grid-column:1/-1">— ${T.nophoto}</div>`}</div></div>`;
 function tCaseHtml(){
  const c=byId(ST.cases,S.cid);if(!c)return `<div class="empty">${T.csNone}</div>`;
- const o0=byId(ST.orders,c.oid),o=o0||{no:c.ono,pname:c.pname,shopId:c.shopId,shopName:c.shopName,cust:c.cust,history:[]},sg=caseSuggest(c,o0),ow=c.owner||S.nf["c"+c.id]||sg.owner||"store",L=LK(o)||{},R=RUL();
+ const o0=byId(ST.orders,c.oid),o=o0||{no:c.ono,pname:c.pname,shopId:c.shopId,shopName:c.shopName,cust:c.cust,history:[]},sg=caseSuggest(c,o0),ow=c.owner||S.nf["c"+c.id]||sg.owner||"",L=LK(o)||{},R=RUL();
  const sh=o.shopId?byId(ST.shops,o.shopId):ST.shops.find(x=>norm(x.name)===norm(o.shopName||""));
  const daysAfter=o.deliveredAt?Math.max(0,Math.round((c.createdAt-(o.receivedAt||o.deliveredAt))/DAY*10)/10):null;
  const sk=shopKey(o),ck=custKey(o);
@@ -4978,7 +5010,7 @@ function tCaseHtml(){
  ${c.status==="open"&&ow==="none"?`<fieldset class="fs"><legend>${T.nwPick}</legend>${Object.keys(T.nwR).map(k=>`<label class="radio ${S.nf["cw"+c.id]===k?"on":""}"><input type="radio" name="nw" data-xc="cnowhy" data-id="${esc(c.id)}" data-k="${k}" ${S.nf["cw"+c.id]===k?"checked":""}><span><b>${typeof T.nwR[k]==="function"?T.nwR[k](RUL().returnDays):T.nwR[k]}</b></span></label>`).join("")}</fieldset>`:""}
  ${c.status==="open"?`<label class="fld"><span>${owNote(ow)}</span><textarea data-cnote="${esc(c.id)}" rows="3" placeholder="${T.csWhyPh}">${esc(S.nf["cn"+c.id]||"")}</textarea></label>
   <button class="cta" data-x="cdecide" data-id="${esc(c.id)}">${T.csDecide}</button>`
- :`<div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.csSaved}</b><br>${esc(T.csOut[c.owner]||"")}${c.remedy==="exchange"?" · "+T.rmExOut:""}${c.decisionNote?`<br>“${esc(c.decisionNote)}”`:""}${c.closedAt?`<br><small>${dm(c.closedAt)} ${hm(c.closedAt)}</small>`:""}</div>${stepsHtml(c)}${c.retNeeded?retTeamHtml(c,o):""}${refundCases().some(x=>x.id===c.id)?`<button class="cta" style="background:var(--green)" data-x="rfdone" data-id="${esc(c.id)}">✓ ${T.rfDone2} · ${fmt(c.refund||0)} ${T.kip}</button>`:""}${c.remedy==="exchange"?`<div class="note" style="text-align:left">🔄 <b>${T.rmExT}</b><br>${c.shopReadyAt?"✓ "+T.rmShopReady(dm(c.shopReadyAt)+" "+hm(c.shopReadyAt)):T.rmShopWait}${c.exDoneAt?`<br><b style="color:var(--green)">✓ ${T.cuExDone} · ${dm(c.exDoneAt)}</b>`:""}</div>${c.exDoneAt?"":`<button class="cta" data-x="cexdone" data-id="${esc(c.id)}">✓ ${T.rmDoneBtn}</button>`}`:""}<button class="sbtn" data-x="creopen" data-id="${esc(c.id)}">${T.csReopen}</button>`}`;
+ :`<div class="note" style="background:var(--green-bg);color:var(--green)"><b>${T.csSaved}</b><br>${esc(T.csOut[c.owner]||"")}${c.remedy==="exchange"?" · "+T.rmExOut:""}${c.decisionNote?`<br>“${esc(c.decisionNote)}”`:""}${c.closedAt?`<br><small>${dm(c.closedAt)} ${hm(c.closedAt)}</small>`:""}</div>${stepsHtml(c)}${c.retNeeded?retTeamHtml(c,o):""}${refundCases().some(x=>x.id===c.id)?`<div class="card" style="gap:8px"><b>💸 ${T.rfDone2} · ${fmt(c.refund||0)} ${T.kip}</b>${rfProofHtml("c"+c.id,"rfdone",c.id,T.rfDone2)}</div>`:""}${c.refundProof?`<div style="display:flex;gap:10px;align-items:center">${thumb(c.refundProof)}<span class="psub" style="font-size:12px">${T.rfProofL}</span></div>`:""}${c.remedy==="exchange"?`<div class="note" style="text-align:left">🔄 <b>${T.rmExT}</b><br>${c.shopReadyAt?"✓ "+T.rmShopReady(dm(c.shopReadyAt)+" "+hm(c.shopReadyAt)):T.rmShopWait}${c.exDoneAt?`<br><b style="color:var(--green)">✓ ${T.cuExDone} · ${dm(c.exDoneAt)}</b>`:""}</div>${c.exDoneAt?"":`<button class="cta" data-x="cexdone" data-id="${esc(c.id)}">✓ ${T.rmDoneBtn}</button>`}`:""}<button class="sbtn" data-x="creopen" data-id="${esc(c.id)}">${T.csReopen}</button>`}`;
 }
 /* ---- return policy ----
    Accepted: wrong item, damaged, far from the listing, empty box / missing parts, never arrived.
@@ -4996,10 +5028,11 @@ function caseSuggest(c,o){
  if(RT_VIDEO.includes(c.reason)&&c.video===false)return {owner:"none",why:T.sgNoVideo,noWhy:"noproof"};
  if(shipperOf(o)==="shop")return {owner:"store",why:T.sgShopShip};
  if(c.reason==="missing")return {owner:"us",why:T.sgLost};
- const ans=S.nf["cpk"+c.id];
- if(ans==="ok")return {owner:"us",why:T.sgTeamOk};
- if(ans==="bad")return {owner:"store",why:T.sgTeamBad};
- return {owner:"",why:T.sgAsk};
+ /* the team collected it from the shop: the shop answers only for a wrong size or a wrong item;
+    damage, an empty box or missing parts happened on the team's watch; "not as pictured" is the team's call */
+ if(c.reason==="wrong")return {owner:"store",why:T.sgTeamWrong};
+ if(c.reason==="damaged"||c.reason==="empty")return {owner:"us",why:T.sgTeamDmg};
+ return {owner:"",why:T.sgTeamDecide};
 }
 const forfeit=o=>ST.cases.some(c=>c.oid===o.id&&c.status==="closed"&&c.owner==="store"&&c.remedy!=="exchange");
 const refundCases=()=>ST.cases.filter(c=>c.status==="closed"&&(c.owner==="store"||c.owner==="us")&&c.remedy!=="exchange"&&!c.refundedAt&&(!c.retNeeded||!!c.retGotAt)&&(!c.atDoor||!!c.kycId));
@@ -5103,7 +5136,7 @@ function custCaseHtml(c,o){
   ${no&&c.noWhy?`<div><span class="psub" style="font-size:12px">${T.cuWhy}</span><br><b>${esc(nwText(c.noWhy))}</b></div>`:""}
   ${c.decisionNote?`<div class="note" style="text-align:left"><span class="psub" style="font-size:12px">${T.cuMsg}</span><br>“${esc(c.decisionNote)}”</div>`:""}
   ${stepsHtml(c)}
-  <div><span class="psub" style="font-size:12px">${T.cuNext}</span><br>${no?T.cuNextNo:c.retNeeded&&!c.retGotAt?retCustHtml(c):c.retNeeded&&!c.refundedAt?`${T.cuRefundWait(fmt(c.refund||0),dm(refundBy(c)))}<br><small class="psub">${T.retCalc(fmt(dueOf(o)),fmt(c.retFee||0),fmt(c.retDeduct||0),fmt(c.refund||0))}${c.retWhy?" · “"+esc(c.retWhy)+"”":""}</small>`:c.remedy==="exchange"?(c.exDoneAt?`<b style="color:var(--green)">✓ ${T.cuExDone}</b> · ${dm(c.exDoneAt)}`:T.cuExWait):c.refundedAt?`<b style="color:var(--green)">✓ ${T.cuRefunded(fmt(c.refund||amt))}</b> · ${dm(c.refundedAt)}`:T.cuRefundWait(fmt(c.refund||amt),dm(refundBy(c)))}</div>
+  <div><span class="psub" style="font-size:12px">${T.cuNext}</span><br>${no?T.cuNextNo:c.retNeeded&&!c.retGotAt?retCustHtml(c):c.retNeeded&&!c.refundedAt?`${T.cuRefundWait(fmt(c.refund||0),dm(refundBy(c)))}<br><small class="psub">${T.retCalc(fmt(dueOf(o)),fmt(c.retFee||0),fmt(c.retDeduct||0),fmt(c.refund||0))}${c.retWhy?" · “"+esc(c.retWhy)+"”":""}</small>`:c.remedy==="exchange"?(c.exDoneAt?`<b style="color:var(--green)">✓ ${T.cuExDone}</b> · ${dm(c.exDoneAt)}`:T.cuExWait):c.refundedAt?`<b style="color:var(--green)">✓ ${T.cuRefunded(fmt(c.refund||amt))}</b> · ${dm(c.refundedAt)}${c.refundProof?`<div style="display:flex;gap:10px;align-items:center;margin-top:6px">${thumb(c.refundProof)}<span class="psub" style="font-size:12px">${T.rfProofCust}</span></div>`:""}`:T.cuRefundWait(fmt(c.refund||amt),dm(refundBy(c)))}</div>
   ${no&&!c.appeal?(S.appeal===c.id?`<label class="fld"><span>${T.apAsk}</span><textarea data-apnote="${esc(c.id)}" rows="3" placeholder="${T.apPh}">${esc(S.nf["ap"+c.id]||"")}</textarea></label><button class="cta" data-x="appealgo" data-id="${esc(c.id)}">${T.apSend}</button>`
    :`<div class="aa"><button class="sbtn" data-x="appeal" data-id="${esc(c.id)}">${T.apBtn}</button><button class="sbtn" data-x="help">${T.help}</button></div>`):no?`<span class="psub" style="font-size:12px">${T.apUsed}</span>`:""}</section>`;
 }
@@ -5290,7 +5323,9 @@ app.addEventListener("click",e=>{
   case "polopen":S.pol=true;S.tab="account";S.screen="home";render();window.scrollTo(0,0);break;
   case "polclose":S.pol=false;render();break;
   case "cpk":S.nf["cpk"+id]=d.k;{const c=byId(ST.cases,id),sg=caseSuggest(c,byId(ST.orders,c.oid));if(sg.owner)S.nf["c"+id]=sg.owner;if(sg.noWhy)S.nf["cw"+id]=sg.noWhy}rr();break;
-  case "rfdone":guard(async()=>{const c=byId(ST.cases,id);if(!c)return;await caseSet(id,{refundedAt:Date.now()});toast(T.rfMarked)})();break;
+  case "rfdone":guard(async()=>{const c=byId(ST.cases,id);if(!c)return;const pf=S.rfProof["c"+id];if(!pf)throw new Error(T.rfNeedProof);await caseSet(id,{refundedAt:Date.now(),refundProof:pf});delete S.rfProof["c"+id];toast(T.rfMarked)})();break;
+  case "rfpick":{const k=d.k;pickUpload(false,"slip").then(ids=>{if(ids&&ids[0]){S.rfProof[k]=ids[0];rr()}});break}
+  case "cxsseen":guard(async()=>{const o=byId(ST.orders,id);if(o)await setOrder(o,{teamCxSeen:Date.now()},"team")})();break;
   case "rtadd":pickUpload(true).then(ids=>{if(ids){S.rt.imgs.push(...ids);rr()}});break;
   case "rtrm":S.rt.imgs.splice(+d.i,1);rr();break;
   case "rtsend":rtSend();break;
@@ -5313,6 +5348,10 @@ app.addEventListener("click",e=>{
   case "spedit":{const p=byId(ST.products,id);if(p){S.sp=spFrom(p);S.confirm="";render()}break}
   case "spdel":spDel();break;
   case "received":receivedOk(id);break;
+  case "sself":guard(async()=>{const o=byId(ST.orders,id);if(!o)return;await setOrder(o,{selfShip:true},"shop","await_shop");await answerOrder(id,true)})();break;
+  case "snoship":guard(async()=>{const o=byId(ST.orders,id);if(!o)return;if(S.confirm!=="ns"+id){S.confirm="ns"+id;rr();return}S.confirm="";await setOrder(o,{status:"cancelled",cancelWhy:"noship"},"shop","await_shop")})();break;
+  case "askself":guard(async()=>{const o=byId(ST.orders,id);if(o)await setOrder(o,{askSelfShip:Date.now()},"team","await_shop")})();break;
+  case "askselfx":guard(async()=>{const o=byId(ST.orders,id);if(!o)return;const n={...strip(o)};delete n.askSelfShip;await put("orders",id,n)})();break;
   case "rcvundo":rcvUndo(id);break;
   case "rcvearly":{const o=byId(ST.orders,id),u=o&&contactUrl(T.rcvEarlyMsg(o.no));if(u)window.open(u,"_blank","noopener");else toast(T.ctNone);break}
   case "notrcv":notReceived(id);break;
@@ -5376,9 +5415,10 @@ app.addEventListener("click",e=>{
   case "pskip":skipTime(d.k);break;
   case "copen":S.cid=id;rr();window.scrollTo(0,0);break;
   case "cdecide":{const c=byId(ST.cases,id);const note=String(S.nf["cn"+id]||"").trim();
-   const o=byId(ST.orders,c.oid),sg=caseSuggest(c,o),owner=S.nf["c"+id]||c.owner||sg.owner||"store",now=Date.now(),noWhy=owner==="none"?S.nf["cw"+id]||sg.noWhy||"":"";
+   const o=byId(ST.orders,c.oid),sg=caseSuggest(c,o),owner=S.nf["c"+id]||c.owner||sg.owner||"",now=Date.now(),noWhy=owner==="none"?S.nf["cw"+id]||sg.noWhy||"":"";
    const remedy=owner==="none"||!canEx(o,c.reason)?"refund":(S.nf["rm"+id]||c.want||"refund");
    if(owner==="us"&&o&&shipperOf(o)==="shop"){toast(T.sgUsBlocked);break}
+   if(!owner){toast(T.csPickOwner);break}
    if(owner==="none"&&!noWhy){toast(T.nwNeed);break}
    if(!note){toast(T.csNeedWhy);break}
    /* how the item comes back: customer ships it (carrier), the team collects it (door), or the team already took it (refused at the door) */
@@ -5582,7 +5622,7 @@ Object.assign(T,{polT:"ເງື່ອນໄຂການຄືນສິນຄ້
  polYesT:"ກໍລະນີທີ່ຮັບຄືນ",polYes:["ໄດ້ຂອງຜິດ: ຜິດລຸ້ນ ສີ ຫຼື ໄຊສ໌ ຈາກທີ່ສັ່ງ","ເຄື່ອງເສຍຫາຍ ຫຼື ແຕກ","ບໍ່ຕົງປົກ: ຕ່າງຈາກຮູບ ແລະ ລາຍລະອຽດຫຼາຍ ຈົນຮັບບໍ່ໄດ້","ກ່ອງເປົ່າ ຫຼື ຂອງບໍ່ຄົບ","ບໍ່ໄດ້ຮັບເຄື່ອງ"],
  polNoT:"ກໍລະນີທີ່ບໍ່ຮັບຄືນ",polNo:d=>["ປ່ຽນໃຈ ບໍ່ມັກ ຫຼື ສັ່ງຜິດໄຊສ໌ເອງ","ບໍ່ມີວິດີໂອຕອນແກະກ່ອງ","ແຈ້ງຫຼັງໄດ້ຮັບເຄື່ອງເກີນ "+d+" ມື້","ເຄື່ອງຖືກໃຊ້ແລ້ວ ຫຼື ເສຍຫາຍຈາກການໃຊ້","ຕຳໜິທີ່ຜູ້ຂາຍບອກໄວ້ໃນລາຍລະອຽດແລ້ວ"],
  polEvT:"ຫຼັກຖານທີ່ຕ້ອງມີ",polEv:d=>["<b>ວິດີໂອຕອນແກະກ່ອງ</b> ຖ່າຍຕໍ່ເນື່ອງ ຕັ້ງແຕ່ກ່ອງຍັງປິດ (ເຫັນໃບປະໜ້າ) ຈົນເຫັນສິນຄ້າ ບໍ່ຕັດຕໍ່","ຮູບກ່ອງກ່ອນແກະ ແລະ ຮູບບັນຫາ ຢ່າງໜ້ອຍ 2 ຮູບ","ແຈ້ງຜ່ານ Sunsoul ພາຍໃນ "+d+" ມື້ ຫຼັງໄດ້ຮັບເຄື່ອງ","ບໍ່ມີຫຼັກຖານ = ບໍ່ຮັບຄືນ ແລະ ບໍ່ຄືນເງິນ"],
- polWhoT:"ໃຜຮັບຜິດຊອບ",polWho:[["🚚 Sunsoul ໄປຮັບ ແລະ ສົ່ງເອງ","ທີມຖ່າຍຮູບເຄື່ອງຕອນຮັບຈາກຮ້ານ · ຖ້າຮູບສະແດງວ່າເຄື່ອງດີ ແລ້ວເສຍຫາຍ ຫຼື ເສຍ ລະຫວ່າງສົ່ງ → Sunsoul ຮັບຜິດຊອບ · ຖ້າຮູບສະແດງວ່າເຄື່ອງຜິດ ຫຼື ເສຍຫາຍຕັ້ງແຕ່ຮ້ານ → ຮ້ານຮັບຜິດຊອບ"],["📦 Sunsoul ແພັກ ແລ້ວຝາກຂົນສົ່ງ","ທີມເຫັນເຄື່ອງ ແລະ ຖ່າຍຮູບກ່ອນຝາກ → ໃຊ້ຫຼັກດຽວກັນ"],["🏪 ຮ້ານຝາກຂົນສົ່ງເອງ","Sunsoul ບໍ່ເຫັນເຄື່ອງ → ຮ້ານຮັບຜິດຊອບທັງໝົດ: ເສຍຫາຍລະຫວ່າງສົ່ງ, ບໍ່ຕົງປົກ, ກ່ອງເປົ່າ · ລູກຄ້າໄດ້ເງິນຄືນ ແລະ ຮ້ານບໍ່ໄດ້ເງິນອໍເດີນັ້ນ"]],
+ polWhoT:"ໃຜຮັບຜິດຊອບ",polWho:[["🚚 Sunsoul ໄປຮັບເຄື່ອງຈາກຮ້ານ (ສົ່ງຮອດເຮືອນ ຫຼື ທີມຝາກຂົນສົ່ງ)","ຮ້ານຮັບຜິດຊອບສະເພາະ ສົ່ງຜິດໄຊສ໌ ຫຼື ໃຫ້ຂອງຜິດ (ຜິດລຸ້ນ / ສີ) · ເສຍຫາຍ, ກ່ອງເປົ່າ, ຂອງບໍ່ຄົບ → Sunsoul ຮັບຜິດຊອບ · ບໍ່ຕົງປົກ → ທີມພິຈາລະນາແຕ່ລະເຄສ"],["🏪 ຮ້ານຝາກຂົນສົ່ງເອງ","Sunsoul ບໍ່ເຫັນເຄື່ອງ → ຮ້ານຮັບຜິດຊອບທັງໝົດ: ເສຍຫາຍລະຫວ່າງສົ່ງ, ບໍ່ຕົງປົກ, ກ່ອງເປົ່າ · ລູກຄ້າໄດ້ເງິນຄືນ ແລະ ຮ້ານບໍ່ໄດ້ເງິນອໍເດີນັ້ນ"]],
  polMoneyT:"ການຄືນເງິນ",polMoney:["ຄືນເງິນເຕັມຈຳນວນທີ່ຈ່າຍ ເຂົ້າບັນຊີທີ່ທ່ານແຈ້ງ","ທີມສົ່ງຮອດເຮືອນ: ເປີດກວດຕໍ່ໜ້າທີມ (ບໍ່ເກີນ 3 ນາທີ) · ຜິດ ຫຼື ເສຍຫາຍ ບອກທີມເອົາກັບໄດ້ເລີຍ ບໍ່ເສຍຄ່າສົ່ງຄືນ · ຫຼັງຮັບແລ້ວ ແຈ້ງບັນຫາໄດ້ພາຍໃນ 12 ຊົ່ວໂມງ","ອໍເດີຝາກຂົນສົ່ງ: ສົ່ງເຄື່ອງຄືນມາ Sunsoul ກ່ອນ (ຈ່າຍຄ່າສົ່ງປາຍທາງ) · ທີມກວດເຄື່ອງ ແລ້ວຄືນເງິນ ຫັກຄ່າສົ່ງຄືນ · ຖ້າເຄື່ອງເສຍຫາຍຈາກການໃຊ້ ອາດຫັກເພີ່ມ","ໂອນພາຍໃນ 3 ມື້ເຮັດການ ຫຼັງທີມຕັດສິນ","ເງິນຂອງຮ້ານຍັງຢູ່ກັບ Sunsoul ຈົນພົ້ນກຳນົດຄືນ ທ່ານຈຶ່ງໄດ້ຮັບການຄຸ້ມຄອງ","ບໍ່ເຫັນດີກັບຜົນ? ຂໍໃຫ້ກວດຄືນໄດ້ 1 ຄັ້ງ"],
  ubT:"ກ່ອນແກະກ່ອງ ເລີ່ມຖ່າຍວິດີໂອກ່ອນ!",ubS:"ຖ່າຍຕໍ່ເນື່ອງ ຕັ້ງແຕ່ກ່ອງຍັງປິດ ໃຫ້ເຫັນໃບປະໜ້າ ຈົນເຫັນສິນຄ້າ · ບໍ່ມີວິດີໂອ = ບໍ່ຮັບຄືນ",coUnbox:"ຮັບເຄື່ອງແລ້ວ ຖ່າຍວິດີໂອຕອນແກະກ່ອງ ເພື່ອສິດຄືນສິນຄ້າ",
  rtChoose:"ເລືອກບັນຫາກ່ອນ",rtMindT:"ກໍລະນີນີ້ບໍ່ຮັບຄືນ",rtMindS:"ປ່ຽນໃຈ ບໍ່ມັກ ຫຼື ສັ່ງຜິດໄຊສ໌ເອງ ບໍ່ຢູ່ໃນເງື່ອນໄຂຄືນສິນຄ້າ · ລອງຕິດຕໍ່ຜູ້ຂາຍ ເພື່ອຂໍແລກ ຖ້າຜູ້ຂາຍຍິນດີ",
@@ -5667,7 +5707,17 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{rcvLater:d=>"ເມື່ອໄປຮັບເຄື່ອງທີ່ສາຂາແລ້ວ ກົດຢືນຢັນໄດ້ຕັ້ງແຕ່ມື້ "+d+" (ຂົນສົ່ງປົກກະຕິ 3–4 ມື້)",rcvEarly:"ໄດ້ຮັບເຄື່ອງກ່ອນກຳນົດ? ແຈ້ງທີມ",
+Object.assign(T,{sgTeamWrong:"ທີມໄປຮັບເຄື່ອງ · ໄດ້ຂອງຜິດ (ໄຊສ໌ / ລຸ້ນ / ສີ) ແມ່ນຮ້ານໃຫ້ຜິດ → ຮ້ານຮັບຜິດຊອບ",
+ sgTeamDmg:"ທີມໄປຮັບເຄື່ອງ · ເສຍຫາຍ / ກ່ອງເປົ່າ / ຂອງບໍ່ຄົບ ເກີດໃນມືທີມ → Sunsoul ຮັບຜິດຊອບ",
+ sgTeamDecide:"ບໍ່ຕົງປົກ · ທີມພິຈາລະນາ: ທຽບຮູບສິນຄ້າໃນເວັບ ກັບ ຮູບທີ່ລູກຄ້າໄດ້ຮັບ ແລ້ວເລືອກເອງ",csPickOwner:"ເລືອກວ່າໃຜຮັບຜິດຊອບກ່ອນ",
+ cxsT:"ລູກຄ້າຍົກເລີກ ຫຼັງແຈ້ງສະລິບມີບັນຫາ",cxsChip:"ລູກຄ້າຍົກເລີກ",cxsWhy:"ບັນຫາສະລິບ",cxsAt:t=>"ຍົກເລີກ "+t,cxsGot:a=>"ມີເງິນເຂົ້າແລ້ວ "+a+" ກີບ → ຕ້ອງຄືນເງິນ",
+ cxsNoMoney:"ບໍ່ມີເງິນເຂົ້າ · ບໍ່ຕ້ອງຄືນເງິນ",cxsHome:n=>"ລູກຄ້າຍົກເລີກ "+n+" ອໍເດີ ຫຼັງແຈ້ງສະລິບມີບັນຫາ",cxsGo:"ເບິ່ງ",
+ rfProofBtn:"ແນບສະລິບໂອນເງິນຄືນ",rfProofS:"ຕ້ອງແນບຮູບສະລິບກ່ອນ ຈຶ່ງກົດ “ໂອນຄືນແລ້ວ” ໄດ້ · ລູກຄ້າຈະເຫັນຮູບນີ້",rfProofL:"ສະລິບໂອນຄືນ",rfProofChange:"ປ່ຽນຮູບ",
+ rfNeedProof:"ແນບສະລິບໂອນເງິນຄືນກ່ອນ",rfProofCust:"ຫຼັກຖານການໂອນເງິນຄືນ (ແຕະເພື່ອເບິ່ງ)",
+ ssT:"ທີມ Sunsoul ໄປຮັບເຄື່ອງບໍ່ສະດວກ",ssS:a=>"ຮ້ານແພັກ ແລະ ຝາກຂົນສົ່ງໄປໃຫ້ລູກຄ້າເອງໄດ້ບໍ? ("+a+") · ຖ້າໄດ້ ກົດຮັບອໍເດີ · ຖ້າບໍ່ສະດວກ ກົດຍົກເລີກ (ລູກຄ້າຍັງບໍ່ໄດ້ຈ່າຍເງິນ)",
+ ssYes:"ມີເຄື່ອງ · ຮ້ານແພັກ ແລະ ຝາກຂົນສົ່ງເອງ",ssNo:"ບໍ່ສະດວກ · ຍົກເລີກອໍເດີ",ssNoSure:"ກົດອີກຄັ້ງ ເພື່ອຍົກເລີກອໍເດີ",
+ asT:"ອໍເດີໃໝ່ ຝາກຂົນສົ່ງ · ທີມຕ້ອງໄປຮັບ",asS:"ໄກ ຫຼື ບໍ່ຄຸ້ມໄປຮັບ? ຖາມຮ້ານໃຫ້ແພັກ ແລະ ຝາກຂົນສົ່ງເອງ ກ່ອນຮ້ານຮັບອໍເດີ",asBtn:"ທີມໄປຮັບບໍ່ສະດວກ · ຖາມຮ້ານ",
+ asAsked:"ຖາມຮ້ານແລ້ວ · ລໍຕອບ",asUndo:"ຍົກເລີກຄຳຖາມ (ທີມໄປຮັບເອງ)",cxNoShip:"ຮ້ານສົ່ງເອງບໍ່ສະດວກ · ຍົກເລີກອໍເດີ",rcvLater:d=>"ເມື່ອໄປຮັບເຄື່ອງທີ່ສາຂາແລ້ວ ກົດຢືນຢັນໄດ້ຕັ້ງແຕ່ມື້ "+d+" (ຂົນສົ່ງປົກກະຕິ 3–4 ມື້)",rcvEarly:"ໄດ້ຮັບເຄື່ອງກ່ອນກຳນົດ? ແຈ້ງທີມ",
  rcvEarlyMsg:n=>"ສະບາຍດີ Sunsoul · ຂ້ອຍໄດ້ຮັບເຄື່ອງອໍເດີ #"+n+" ແລ້ວ",rcvTooSoon:"ຍັງກົດບໍ່ໄດ້ · ເຄື່ອງຍັງບໍ່ທັນຮອດສາຂາ",
  ruBtn:"↩ ກົດຜິດ · ຍັງບໍ່ໄດ້ຮັບເຄື່ອງ",ruSure:"ກົດອີກຄັ້ງ ເພື່ອຍ້ອນກັບ",ruDone:"ຍ້ອນກັບແລ້ວ · ກົດຢືນຢັນໃໝ່ເມື່ອໄດ້ຮັບເຄື່ອງ",unT:"ສົ່ງແລ້ວ ລ່າສຸດ",unS:"ກົດຜິດ? ຍ້ອນກັບໄດ້ພາຍໃນ 12 ຊົ່ວໂມງ (ຖ້າລູກຄ້າຍັງບໍ່ໄດ້ກົດຢືນຢັນເອງ)",unBtn:"ຍ້ອນກັບ · ຍັງບໍ່ຮອດ",
  unSure:"ກົດອີກຄັ້ງເພື່ອຍ້ອນກັບ",unRef:"ລູກຄ້າບໍ່ຮັບ",unChk:"ກວດແລ້ວ · ຮັບແລ້ວ",unDone:"ສົ່ງຮອດແລ້ວ",unDoneT:"ຍ້ອນກັບແລ້ວ · ອໍເດີກັບໄປ “ກຳລັງສົ່ງ”",stpAll:"ຈົບເຄສແລ້ວ",stpDecided:"ທີມຕັດສິນ",stpCustSend:"ລູກຄ້າສົ່ງເຄື່ອງຄືນມາ Sunsoul",stpTeamGot:"ທີມຮັບ ແລະ ກວດເຄື່ອງ",stpPickup:"ທີມໄປຮັບເຄື່ອງຄືນຈາກລູກຄ້າ",
@@ -5698,7 +5748,7 @@ Object.assign(T,{rcvLater:d=>"ເມື່ອໄປຮັບເຄື່ອງ�
  cmpWhere:"ຈຸດທີ່ຜິດ (ທີມ Sunsoul)",cmpWait:"ທີມກຳລັງທຽບຮູບ · ຈະແຈ້ງຈຸດທີ່ຜິດໃຫ້ຮ້ານຮູ້",scMore:"ລາຍລະອຽດ",scFiled:"ລູກຄ້າແຈ້ງ",scDecided:"ທີມຕັດສິນ",scVidTeam:"ສົ່ງໃຫ້ທີມທາງ WhatsApp",
  scRulesT:"ກົດ: ເມື່ອໃດຮ້ານຕ້ອງຮັບຜິດຊອບ",
  scRules:d=>["ສົ່ງເຄື່ອງຜິດຈາກທີ່ລູກຄ້າສັ່ງ (ລຸ້ນ / ສີ / ໄຊສ໌)",
-  "ທີມໄປຮັບເຄື່ອງ: ຖ້າຮູບທີ່ທີມຖ່າຍຕອນຮັບ / ແພັກ ສະແດງວ່າເຄື່ອງຜິດ ຫຼື ເສຍຫາຍຢູ່ແລ້ວ → ຮ້ານຮັບຜິດຊອບ · ຖ້າຮູບສະແດງວ່າເຄື່ອງດີ → Sunsoul ຮັບຜິດຊອບ",
+  "ທີມໄປຮັບເຄື່ອງຈາກຮ້ານ: ຮ້ານຮັບຜິດຊອບສະເພາະ ສົ່ງຜິດໄຊສ໌ ຫຼື ໃຫ້ຂອງຜິດ · ເສຍຫາຍ, ກ່ອງເປົ່າ, ຂອງບໍ່ຄົບ → Sunsoul ຮັບຜິດຊອບ · ບໍ່ຕົງປົກ → ທີມພິຈາລະນາ",
   "ຮ້ານຝາກຂົນສົ່ງເອງ: ຮ້ານຮັບຜິດຊອບທຸກກໍລະນີ (ເສຍຫາຍ, ບໍ່ຕົງປົກ, ກ່ອງເປົ່າ, ຂອງບໍ່ຄົບ)",
   "ບໍ່ຮັບຄືນ: ລູກຄ້າປ່ຽນໃຈ, ບໍ່ມີວິດີໂອແກະກ່ອງ, ແຈ້ງຊ້າກວ່າ "+d+" ວັນ",
   "ຜົນ: ຄືນເງິນ → ຮ້ານບໍ່ໄດ້ຮັບເງິນອໍເດີນັ້ນ ແລະ ໄດ້ເຄື່ອງຄືນ · ປ່ຽນສິນຄ້າ → ຮ້ານສົ່ງເຄື່ອງໃໝ່ ແລ້ວໄດ້ຮັບເງິນຫຼັງປ່ຽນ"],

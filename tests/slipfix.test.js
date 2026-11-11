@@ -44,8 +44,8 @@ await p.click('[data-x="owcx"][data-id="B"]');await p.waitForTimeout(50);await p
 ok(await p.evaluate(()=>byId(ST.orders,'B').cancelWhy==='refund'),'team cancel with money received = refund');
 ok((await p.textContent('main')).includes('ຕ້ອງຄືນເງິນລູກຄ້າ 50,000'),'team gets a refund-to-do');
 await p.evaluate(()=>{S.tab='orders';S.oid='B';render()});ok((await p.textContent('main')).includes('ທີມຈະໂອນເງິນ 50,000'),'customer is told the 50,000 will be returned');
-await p.evaluate(()=>{S.tab='team';S.sub='verify';render()});await p.click('[data-x="owdone"]');await p.waitForTimeout(150);
-await p.evaluate(()=>{S.tab='orders';S.oid='B';render()});ok((await p.textContent('main')).includes('ໂອນຄືນ 50,000 ກີບ ແລ້ວ'),'customer sees refund done');
+await p.evaluate(()=>{S.tab='team';S.sub='verify';S.rfProof.oB='u:rfp';render()});await p.click('[data-x="owdone"]');await p.waitForTimeout(150);
+await p.evaluate(()=>{S.tab='orders';S.oid='B';render()});ok((await p.textContent('main')).includes('ໂອນຄືນ 50,000 ກີບ ແລ້ວ')&&!!(await p.$('[data-zoom="u:rfp"]')),'customer sees refund done, with the transfer slip');
 // ---- return refused ----
 await p.evaluate(()=>{const t0=Date.now()-9*86400e3;ST.orders.push({pid:'p1',pname:'ເສື້ອ',vlabel:'L',qty:1,price:100000,shopId:'s1',shopName:'tt',acct:'2098798512',cust:{name:'Noy',phone:'2098798512'},id:'C',no:'SS-C',status:'delivered',deliveredAt:t0,receivedAt:t0,createdAt:t0,history:[]});
 ST.cases.push({id:'k1',no:'RT-1',oid:'C',reason:'size',status:'open',owner:'',createdAt:Date.now()});S.tab='team';S.sub='cases';S.cid='k1';render()});

@@ -91,7 +91,7 @@ service cloud.firestore {
         return ownsShop(resource.data.shopId) && fixed()
           && onlyChanged(['status', 'shopAt', 'fee', 'km', 'payDeadline', 'declinedAt', 'shopDeadline', 'cancelWhy',
                           'shopHidden', 'shopAckAt', 'shopReady', 'handedAt', 'receiptNo', 'carrier', 'packPhotos',
-                          'shippedBy', 'history'])
+                          'shippedBy', 'selfShip', 'history'])
           && (sameStatus()
               || moved(['await_shop'], 'await_pay') || moved(['await_shop'], 'declined')
               || moved(['await_shop'], 'cancelled') || moved(['declined'], 'await_shop')

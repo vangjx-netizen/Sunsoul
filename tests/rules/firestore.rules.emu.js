@@ -149,6 +149,8 @@ const deny = (name, p) => check(name, p, false);
   await deny('stranger cannot open a case for the buyer', setDoc(doc(stranger, 'cases/cx'), { uid: 'buyer', status: 'open', reason: 'wrong' }));
   await allow('buyer takes back own “received” (back to shipping)', updateDoc(doc(buyer, 'orders/r1'), { status: 'shipping', receivedAt: deleteField(), receivedBy: deleteField(), deliveredAt: deleteField() }));
   await deny('buyer cannot undo a delivery the team marked', updateDoc(doc(buyer, 'orders/r2'), { status: 'shipping', deliveredAt: deleteField() }));
+  await allow('shop agrees to pack and ship itself', updateDoc(doc(shop, 'orders/o1'), { selfShip: true }));
+  await deny('buyer cannot switch who ships the order', updateDoc(doc(buyer, 'orders/o1'), { selfShip: false }));
   await deny('buyer cannot decide own case', setDoc(doc(buyer, 'cases/c8'), { uid: 'buyer', status: 'open', owner: 'us', refund: 999 }));
   await deny('stranger cannot read the case', getDoc(doc(stranger, 'cases/c1')));
   await deny('buyer cannot mark the refund as paid', updateDoc(doc(buyer, 'cases/c1'), { refundedAt: 1 }));

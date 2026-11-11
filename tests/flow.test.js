@@ -51,7 +51,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok(t.includes('ຕ້ອງໂອນເງິນຄືນລູກຄ້າ: 1'), 'team overview: “refund the customer: 1”');
 
   // team refunds from the case page
-  await tcase(); await p.click('[data-x="rfdone"][data-id="c1"]'); await p.waitForTimeout(100);
+  await tcase(); await p.evaluate(() => { S.rfProof.cc1 = 'u:rf'; rr(); }); await p.click('[data-x="rfdone"][data-id="c1"]'); await p.waitForTimeout(100);
   ok(!!(await cs()).refundedAt, 'team: refund marked from the case page');
   t = await team();
   ok(t.includes('ຕ້ອງສົ່ງເຄື່ອງຄືນຮ້ານ: 1') && !t.includes('ຕ້ອງໂອນເງິນຄືນລູກຄ້າ'), 'team overview: now “return the item to the shop: 1”');
