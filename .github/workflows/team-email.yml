@@ -19,9 +19,10 @@ jobs:
           node-version: 20
       - name: Hide the e-mail in the log
         run: echo "::add-mask::${{ inputs.email }}"
-      - run: npm install --no-save --no-audit --no-fund firebase-admin@13
+      # installed on its own, away from the project's test tools
+      - run: mkdir -p "$RUNNER_TEMP/fa" && cd "$RUNNER_TEMP/fa" && npm init -y >/dev/null && npm install --no-audit --no-fund firebase-admin@13
       - name: Add to the team
-        run: node tools/add_team_email.js
+        run: NODE_PATH="$RUNNER_TEMP/fa/node_modules" node tools/add_team_email.js
         env:
           EMAIL: ${{ inputs.email }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
