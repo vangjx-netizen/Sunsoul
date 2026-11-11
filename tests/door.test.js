@@ -56,6 +56,6 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok((await p.textContent('main')).includes(await p.evaluate(() => T.csAtDoor)), 'team case page: “refused at the door”');
   await p.check('[data-xc="cowner"][data-k="store"]'); await p.fill(`[data-cnote="${c.id}"]`, 'ຮ້ານແພັກສີຜິດ');
   await p.click(`[data-x="cdecide"][data-id="${c.id}"]`); await p.waitForTimeout(120);
-  ok(await p.evaluate(id => { const x = ST.cases.find(k => k.id === id); return x.status === 'closed' && !x.retNeeded && x.refund === 115000 && refundCases().some(k => k.id === id); }, c.id), 'decided: full refund 115,000 straight to the refund list (nothing to send back)');
+  ok(await p.evaluate(id => { const x = ST.cases.find(k => k.id === id); return x.status === 'closed' && x.retMode === 'team' && !!x.retGotAt && x.refund === 115000 && refundCases().some(k => k.id === id); }, c.id), 'decided: item already back with the team → full refund 115,000 straight to the refund list');
   await b.close(); console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })();

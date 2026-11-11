@@ -119,7 +119,7 @@ service cloud.firestore {
       allow read: if isTeam() || (signedIn() && resource.data.uid == me()) || ownsShop(resource.data.shopId);
       // the team opens a case when a customer refuses an item at the door
       allow create: if isTeam() || signedIn() && newData().uid == me() && newData().status == 'open'
-        && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt', 'remedy', 'exDoneAt', 'shopReadyAt', 'shopSeenAt', 'shopAskAt', 'retNeeded', 'retGotAt', 'retFee', 'retDeduct']);
+        && !newData().keys().hasAny(['owner', 'refund', 'refundedAt', 'decisionNote', 'closedAt', 'remedy', 'exDoneAt', 'shopReadyAt', 'shopSeenAt', 'shopAskAt', 'retNeeded', 'retMode', 'retGotAt', 'retFee', 'retDeduct', 'retShopAt', 'refundedAt']);
       allow update: if isTeam()
         // the shop says the replacement is ready, or that it has read the decision
         || (ownsShop(resource.data.shopId) && (onlyChanged(['shopReadyAt']) || onlyChanged(['shopSeenAt']) || onlyChanged(['shopAskAt'])))
