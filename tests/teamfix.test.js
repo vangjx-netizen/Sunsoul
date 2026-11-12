@@ -32,9 +32,10 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok(!(await p.textContent('main')).includes(await T_('cxsT')), 'team acknowledges → notice leaves');
 
   // ---- (4) team can't collect: ask the shop to ship it itself, before it accepts ----
+  await p.evaluate(() => { S.sub = 'waitshop'; render(); });
+  ok(!!(await p.$('[data-x="askself"][data-id="c1"]')), '“waiting for shop” list: carrier orders the team would collect have “ask the shop”');
+  await p.click('[data-x="askself"][data-id="c1"]'); await p.waitForTimeout(80); await p.click('[data-x="askself"][data-id="c2"]'); await p.waitForTimeout(100);
   await p.evaluate(() => { S.sub = 'run'; render(); });
-  ok(!!(await p.$('[data-x="askself"][data-id="c1"]')), 'run page: new carrier orders the team would collect, with “ask the shop”');
-  await p.click('[data-x="askself"][data-id="c1"]'); await p.click('[data-x="askself"][data-id="c2"]'); await p.waitForTimeout(100);
   ok(await p.evaluate(() => !!byId(ST.orders, 'c1').askSelfShip) && !!(await p.$('[data-x="askselfx"][data-id="c1"]')), 'asked; the team can withdraw the question');
   await p.evaluate(() => { S.shopId = 'far'; S.tab = 'store'; S.ss = 'orders'; render(); });
   t = await p.textContent('main');
@@ -48,5 +49,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   ok((await p.textContent('main')).includes(await p.evaluate(() => T.cxNoShip)), 'customer is told why it was cancelled');
   await p.evaluate(() => { S.tab = 'team'; S.sub = 'run'; render(); });
   ok(!(await p.$('[data-x="askself"][data-id="c1"]')) && !(await p.$('[data-x="dok"][data-id="c1"]')), 'self-shipped order is no longer on the team’s pickup list');
+  t = await p.textContent('main');
+  ok(t.includes(await p.evaluate(() => T.ssListT)) && t.includes('SS-c1') && !(await p.$('[data-id="c1"][data-x]')), 'team sees the shop-shipped order view-only, with no buttons for it');
+  await p.evaluate(() => { const o = byId(ST.orders, 'c1'); o.status = 'delivered'; o.deliveredAt = Date.now(); render(); });
+  ok(await p.evaluate(() => !canUndo(byId(ST.orders, 'c1'))) && !(await p.$('[data-x="undodel"][data-id="c1"]')), 'the team cannot undo a delivery on a shop-shipped order');
   await b.close(); console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })();

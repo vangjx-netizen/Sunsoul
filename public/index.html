@@ -4861,8 +4861,18 @@ function rfProofHtml(k,act,id,label){
 /* pickup / delivery run */
 function pkOf(k){return S.pk[k]||(S.pk[k]={checks:{},photos:[],test:false})}
 /* new carrier orders the team would have to collect: the team can ask the shop to pack and ship them itself */
+const canAskSelf=o=>o.status==="await_shop"&&o.kind==="carrier"&&shopLocal(shopOf(o))&&!o.selfShip;
+/* orders a shop agreed to pack and ship itself after the team asked: between the customer and the shop; the team only watches */
+function selfShipHtml(){
+ const L=ST.orders.filter(o=>o.selfShip&&["await_pay","await_verify","await_pickup","shipping"].includes(o.status)).sort(byOld);
+ if(!L.length)return "";
+ return `<h2 class="sec">🏪 ${T.ssListT}</h2><div class="psub" style="font-size:12px;margin-top:-6px">${T.ssListS}</div>${L.map(o=>`<section class="card" style="gap:4px;opacity:.85">
+  <div style="display:flex;justify-content:space-between;gap:8px"><b>#${esc(o.no)} · ${esc(o.shopName||"")}</b>${chip(o)}</div>
+  <span class="psub" style="font-size:13px">${itemLine(o)} · ${esc((o.cust&&o.cust.name)||"")}${o.handedAt?" · "+esc(shipLabel(o)):""}</span>
+  <span class="chip b" style="align-self:flex-start">👀 ${T.ssView}</span></section>`).join("")}`;
+}
 function askShipHtml(){
- const L=ST.orders.filter(o=>o.status==="await_shop"&&o.kind==="carrier"&&shopLocal(shopOf(o))&&!o.selfShip).sort(byOld);
+ const L=ST.orders.filter(canAskSelf).sort(byOld);
  if(!L.length)return "";
  return `<h2 class="sec">${T.asT}</h2><div class="psub" style="font-size:12px;margin-top:-6px">${T.asS}</div>${L.map(o=>{const sh=shopOf(o)||{};return `<section class="card" style="gap:6px">
   <div style="display:flex;justify-content:space-between;gap:8px"><b>#${esc(o.no)} · ${esc(o.shopName||"")}</b>${o.askSelfShip?`<span class="chip a">${T.asAsked}</span>`:""}</div>
@@ -4879,7 +4889,9 @@ function tWaitShopHtml(){
   return `<section class="card" style="gap:6px;${left<30*60000?"border:2px solid var(--bad)":""}">
   <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${i+1}. #${esc(o.no)}</b><span class="chip ${left<0?"r":left<30*60000?"a":"b"}">${left<0?T.noReplyExp:cdSpan(o.shopDeadline)}</span></div>
   <span style="font-size:14px">🏪 <b>${esc(o.shopName||"—")}</b> · ${itemLine(o)}</span>
-  <span class="psub" style="font-size:12px">${T.wsIn(dm(o.createdAt)+" "+hm(o.createdAt))}${o.askSelfShip?" · "+T.asAsked:""}</span>
+  <span class="psub" style="font-size:12px">${T.wsIn(dm(o.createdAt)+" "+hm(o.createdAt))}${o.kind==="carrier"?" · 📦 "+T.wsCarrier:""}</span>
+  ${canAskSelf(o)?(o.askSelfShip?`<div class="note" style="text-align:left;font-size:12px">🚚 ${T.asAsked}<br><button class="lnk" data-x="askselfx" data-id="${esc(o.id)}" style="font-size:12px">${T.asUndo}</button></div>`
+   :`<button class="sbtn" data-x="askself" data-id="${esc(o.id)}" style="align-self:flex-start;min-height:36px">🚚 ${T.asBtn}</button>`):""}
   <div class="aa">${u?`<a class="sbtn" style="display:inline-flex;align-items:center;min-height:36px" href="${esc(u)}" target="_blank" rel="noopener">${T.waBtn}</a>`:""}<button class="sbtn" style="min-height:36px" data-x="callshop" data-id="${esc(o.id)}">${ic("phone2",14,2.2)} ${T.callShop}</button>
    <button class="sbtn" style="min-height:36px" data-x="wsmore" data-id="${esc(o.id)}" aria-label="${T.wsMore}">⋯</button></div>
   ${more?`<div class="note" style="text-align:left;font-size:12px">${T.wsCxNote}<br><button class="lnk" data-x="tcancel" data-id="${esc(o.id)}" style="color:var(--bad);font-size:13px">${S.confirm==="tc"+o.id?T.wsCxSure:T.wsCx}</button></div>`:""}</section>`}).join("")}`;
@@ -4915,7 +4927,7 @@ function tRunHtml(){
   :`<div class="photos">${D.photos.map(id=>`<div class="pt"><img src="${imgSrc(id)}" alt="" data-zoom="${esc(id)}"></div>`).join("")}</div><button class="sbtn" data-x="dphoto" data-id="${esc(o.id)}">${ic("camera",16,2)} ${T.dPhoto}</button>`}
   ${o.kind==="carrier"?`<button class="cta" style="background:var(--green)" data-x="dok" data-id="${esc(o.id)}" ${!cod||D.cod?"":"disabled"}>${T.dDone}</button>`:doorBtns(o,D,cod)}</section>`;
  }).join("");
- return `${askShipHtml()}${bad?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.unverified(bad)}</div>`:""}<h2 class="sec">${T.rPick}</h2>${ph||`<div class="empty">${T.rNone}</div>`}<h2 class="sec">${T.rDeliver}</h2>${dl||`<div class="empty">${T.dNone}</div>`}${undoListHtml()}`;
+ return `${askShipHtml()}${selfShipHtml()}${bad?`<div class="note" style="background:var(--red-bg);color:var(--bad);font-weight:700">${T.unverified(bad)}</div>`:""}<h2 class="sec">${T.rPick}</h2>${ph||`<div class="empty">${T.rNone}</div>`}<h2 class="sec">${T.rDeliver}</h2>${dl||`<div class="empty">${T.dNone}</div>`}${undoListHtml()}`;
 }
 const pickOk=guard(async k=>{
  const P=pkOf(k),L=ST.orders.filter(o=>o.status==="await_pickup"&&cleared(o)&&dMode(o)!=="shop"&&(o.shopId||norm(o.shopName)||"_")===k);
@@ -4943,6 +4955,7 @@ function doorBtns(o,D,cod){
    the customer has not confirmed it themselves, the shop is not paid, and no case has gone further than
    the one a refusal at the door opened */
 const canUndo=o=>{
+ if(dMode(o)==="shop")return false;
  if(o.status!=="delivered"||!o.deliveredAt||Date.now()-o.deliveredAt>12*3600000||o.paidOutAt)return false;
  if(o.receivedBy==="customer")return false;
  const c=caseOf(o);return !c||(c.atDoor&&c.status==="open");
@@ -5802,7 +5815,8 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{lkDoneT:"ຂອບໃຈທີ່ຊ່ວຍທົດສອບ Sunsoul 🙏",lkDoneS:"ລິ້ງເຊີນໃຊ້ໄດ້ຄັ້ງດຽວ · ຖ້າຢາກທົດສອບອີກ ຂໍລິ້ງໃໝ່ຈາກທີມ Sunsoul",lkT:"Sunsoul ກຳລັງພັດທະນາ",lkS:"ຕອນນີ້ເປີດໃຫ້ສະເພາະຜູ້ໄດ້ຮັບເຊີນທົດສອບ · ພົບກັນໄວໆນີ້ 🙏",
+Object.assign(T,{wsCarrier:"ຝາກຂົນສົ່ງ",ssListT:"ຮ້ານສົ່ງເອງ (ທີມເບິ່ງໄດ້ຢ່າງດຽວ)",ssListS:"ຮ້ານຕົກລົງແພັກ ແລະ ຝາກຂົນສົ່ງເອງ · ເປັນເລື່ອງລະຫວ່າງລູກຄ້າ ແລະ ຮ້ານ · ທີມບໍ່ຕ້ອງໄປຮັບ ຫຼື ສົ່ງ",
+ ssView:"ເບິ່ງໄດ້ຢ່າງດຽວ",lkDoneT:"ຂອບໃຈທີ່ຊ່ວຍທົດສອບ Sunsoul 🙏",lkDoneS:"ລິ້ງເຊີນໃຊ້ໄດ້ຄັ້ງດຽວ · ຖ້າຢາກທົດສອບອີກ ຂໍລິ້ງໃໝ່ຈາກທີມ Sunsoul",lkT:"Sunsoul ກຳລັງພັດທະນາ",lkS:"ຕອນນີ້ເປີດໃຫ້ສະເພາະຜູ້ໄດ້ຮັບເຊີນທົດສອບ · ພົບກັນໄວໆນີ້ 🙏",
  lkUsed:"ລິ້ງເຊີນນີ້ໃຊ້ແລ້ວ ຫຼື ໝົດເວລາ · ຂໍລິ້ງໃໝ່ຈາກທີມ Sunsoul",lkBad:"ລິ້ງເຊີນບໍ່ຖືກຕ້ອງ",lkTeam:"ທີມ Sunsoul ແລະ ຮ້ານຄ້າ: ເຂົ້າສູ່ລະບົບດ້ວຍ Google",
  pvT:"ໂໝດທົດສອບ (ລິ້ງເຊີນ)",pvOn:"ປິດບໍ່ໃຫ້ຄົນທົ່ວໄປເຂົ້າ",pvOff:"ເປີດໃຫ້ທຸກຄົນ",pvOnS:"ຄົນທົ່ວໄປເຫັນໜ້າ “ກຳລັງພັດທະນາ” · ເຂົ້າໄດ້ສະເພາະ ທີມ, ຮ້ານ ແລະ ຄົນມີລິ້ງເຊີນ",
  pvOffS:"ລິ້ງຫຼັກເປີດປົກກະຕິ · ລິ້ງເຊີນຍັງໃຊ້ໄດ້: ຄົນທີ່ເຂົ້າດ້ວຍລິ້ງເຊີນ ປິດແທັບແລ້ວ ເຂົ້າຄືນບໍ່ໄດ້ (ທັງລິ້ງເຊີນ ແລະ ລິ້ງຫຼັກ)",pvOpen:"ເປີດໃຫ້ທຸກຄົນ",pvClose:"ປິດ (ໂໝດທົດສອບ)",pvNotePh:"ໃຫ້ໃຜ? ເຊັ່ນ: ນ້ອຍ (ລູກຄ້າທົດສອບ)",pvNew:"ສ້າງລິ້ງເຊີນ",
@@ -5817,7 +5831,7 @@ Object.assign(T,{lkDoneT:"ຂອບໃຈທີ່ຊ່ວຍທົດສອບ
  cxsNoMoney:"ບໍ່ມີເງິນເຂົ້າ · ບໍ່ຕ້ອງຄືນເງິນ",cxsHome:n=>"ລູກຄ້າຍົກເລີກ "+n+" ອໍເດີ ຫຼັງແຈ້ງສະລິບມີບັນຫາ",cxsGo:"ເບິ່ງ",
  rfProofBtn:"ແນບສະລິບໂອນເງິນຄືນ",rfProofS:"ຕ້ອງແນບຮູບສະລິບກ່ອນ ຈຶ່ງກົດ “ໂອນຄືນແລ້ວ” ໄດ້ · ລູກຄ້າຈະເຫັນຮູບນີ້",rfProofL:"ສະລິບໂອນຄືນ",rfProofChange:"ປ່ຽນຮູບ",
  rfNeedProof:"ແນບສະລິບໂອນເງິນຄືນກ່ອນ",rfProofCust:"ຫຼັກຖານການໂອນເງິນຄືນ (ແຕະເພື່ອເບິ່ງ)",
- ssT:"ທີມ Sunsoul ໄປຮັບເຄື່ອງບໍ່ສະດວກ",ssS:a=>"ຮ້ານແພັກ ແລະ ຝາກຂົນສົ່ງໄປໃຫ້ລູກຄ້າເອງໄດ້ບໍ? ("+a+") · ຖ້າໄດ້ ກົດຮັບອໍເດີ · ຖ້າບໍ່ສະດວກ ກົດຍົກເລີກ (ລູກຄ້າຍັງບໍ່ໄດ້ຈ່າຍເງິນ)",
+ ssT:"ທີມ Sunsoul ໄປຮັບເຄື່ອງບໍ່ສະດວກ",ssS:a=>"ຮ້ານແພັກ ແລະ ຝາກຂົນສົ່ງໄປໃຫ້ລູກຄ້າເອງໄດ້ບໍ?"+(a?" ("+a+")":"")+" · ຖ້າໄດ້ ກົດຮັບອໍເດີ · ຖ້າບໍ່ສະດວກ ກົດຍົກເລີກ (ລູກຄ້າຍັງບໍ່ໄດ້ຈ່າຍເງິນ)",
  ssYes:"ມີເຄື່ອງ · ຮ້ານແພັກ ແລະ ຝາກຂົນສົ່ງເອງ",ssNo:"ບໍ່ສະດວກ · ຍົກເລີກອໍເດີ",ssNoSure:"ກົດອີກຄັ້ງ ເພື່ອຍົກເລີກອໍເດີ",
  asT:"ອໍເດີໃໝ່ ຝາກຂົນສົ່ງ · ທີມຕ້ອງໄປຮັບ",asS:"ໄກ ຫຼື ບໍ່ຄຸ້ມໄປຮັບ? ຖາມຮ້ານໃຫ້ແພັກ ແລະ ຝາກຂົນສົ່ງເອງ ກ່ອນຮ້ານຮັບອໍເດີ",asBtn:"ທີມໄປຮັບບໍ່ສະດວກ · ຖາມຮ້ານ",
  asAsked:"ຖາມຮ້ານແລ້ວ · ລໍຕອບ",asUndo:"ຍົກເລີກຄຳຖາມ (ທີມໄປຮັບເອງ)",cxNoShip:"ຮ້ານສົ່ງເອງບໍ່ສະດວກ · ຍົກເລີກອໍເດີ",rcvLater:d=>"ເມື່ອໄປຮັບເຄື່ອງທີ່ສາຂາແລ້ວ ກົດຢືນຢັນໄດ້ຕັ້ງແຕ່ມື້ "+d+" (ຂົນສົ່ງປົກກະຕິ 3–4 ມື້)",rcvEarly:"ໄດ້ຮັບເຄື່ອງກ່ອນກຳນົດ? ແຈ້ງທີມ",
