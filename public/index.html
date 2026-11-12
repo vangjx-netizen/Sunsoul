@@ -5634,7 +5634,7 @@ function branchHtml(C){
  <label class="fld">${T.brProv}<select data-co="prov"><option value="">${T.brProvPick}</option>${PROVS.map(v=>`<option ${C.prov===v?"selected":""}>${v}</option>`).join("")}</select></label></section>`;
 }
 const branchText=C=>[String(C.branch||"").trim()&&T.brLbl+" "+String(C.branch).trim(),String(C.brPhone||"").trim()&&T.brTel+" "+String(C.brPhone).trim(),String(C.village||"").trim()&&"ບ້ານ "+String(C.village).trim(),String(C.district||"").trim()&&"ເມືອງ "+String(C.district).trim(),C.prov].filter(Boolean).join(", ");
-Object.assign(T,{brT:"ສາຂາຂົນສົ່ງປາຍທາງ",brHint:"ຮ້ານຈະຝາກເຄື່ອງໄປສາຂານີ້ · ທ່ານຈ່າຍຄ່າຂົນສົ່ງ ແລະ ຮັບເຄື່ອງທີ່ສາຂາເອງ",brName:"ຊື່ຂົນສົ່ງ / ສາຂາ",brNamePh:"ຂຽນຊື່ຂົນສົ່ງ",
+Object.assign(T,{brT:"ສາຂາຂົນສົ່ງປາຍທາງ",brHint:"ຮ້ານຈະຝາກເຄື່ອງໄປສາຂານີ້ · ທ່ານຈ່າຍຄ່າຂົນສົ່ງ ແລະ ຮັບເຄື່ອງທີ່ສາຂາເອງ",brName:"ຊື່ຂົນສົ່ງ / ສາຂາ",brNamePh:"ຊື່ສາຂາຂົນສົ່ງ...",
  brVillage:"ບ້ານ",brDistrict:"ເມືອງ",brProv:"ແຂວງ",brProvPick:"— ເລືອກແຂວງ —",brErr:"ກະລຸນາໃສ່ ສາຂາຂົນສົ່ງ, ເບີໂທ, ເມືອງ ແລະ ແຂວງ",brPhone:"ເບີໂທຜູ້ຮັບເຄື່ອງ",brPhoneHint:"(ຂົນສົ່ງໂທແຈ້ງເມື່ອເຄື່ອງຮອດສາຂາ · ໃສ່ທຸກຄັ້ງທີ່ສັ່ງ)",brTel:"ໂທ",brLbl:"ສາຂາ",
  doorPart:"ທີ່ຢູ່ສົ່ງຮອດເຮືອນ (ສຳລັບສິນຄ້າທີ່ທີມ Sunsoul ສົ່ງ)",shipTo:"ຝາກໄປໃຫ້"});
 Object.assign(T,{vPhotoRm:"ລຶບຮູບຂອງຕົວເລືອກນີ້",slipPickBtn:"ເລືອກຮູບສະລິບ",slipSendBtn:"ສົ່ງສະລິບ",slipChange:"ປ່ຽນຮູບ",slipDone:"ສົ່ງສະລິບສຳເລັດ · ທີມງານກຳລັງກວດຍອດ ຈະແຈ້ງໃຫ້ຮູ້ໄວໆນີ້",
