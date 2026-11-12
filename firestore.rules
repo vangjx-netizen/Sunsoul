@@ -39,6 +39,13 @@ service cloud.firestore {
     match /imgm/{id}     { allow read: if true; allow write: if isTeam(); }
     match /shopPrivate/{id} { allow read, write: if isTeam(); }   // shops' bank accounts
     match /admins/{uid}  { allow get: if signedIn() && me() == uid; }
+    // test-mode invite links: anyone may look one up by its code and claim it once for themselves
+    match /invites/{code} {
+      allow get: if true;
+      allow list, create, delete: if isTeam();
+      allow update: if isTeam() || (signedIn() && resource.data.get('claimedBy', '') == '' && newData().claimedBy == me()
+        && newData().diff(resource.data).affectedKeys().hasOnly(['claimedBy', 'claimedAt']));
+    }
     match /teamEmails/{email} { allow get: if signedIn() && (myEmail() == email || isTeam()); allow list, write: if isTeam(); }
 
     // products a shop lists itself

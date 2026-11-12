@@ -154,6 +154,37 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   await buyer.click('[data-x="notrcv"]'); await buyer.click('[data-x="notrcv"]');
   ok(await until(async () => !!(await admin(async d => (await getDoc(doc(d, 'orders/o2'))).data().caseId))), 'buyer: “not received” opens a case with the real rules');
 
+  // ---- test mode: closed to the public, one-time invite links ----
+  await admin(d => setDoc(doc(d, 'settings/site'), { private: true }));
+  await admin(d => setDoc(doc(d, 'invites/TRY23456'), { createdAt: Date.now(), note: 'tester' }));
+  const fresh = async (url) => {
+    const ctx = await browser.newContext({ viewport: { width: 430, height: 900 } });
+    await ctx.route('https://www.gstatic.com/firebasejs/12.19.0/*', r => r.fulfill({ path: path.join(SDK, path.basename(new URL(r.request().url()).pathname)), contentType: 'application/javascript' }));
+    const pg = await ctx.newPage(); pg.on('pageerror', e => { console.log('ERR(test-mode)', e.message); fails++; });
+    await pg.goto('http://localhost:5055' + url); await wait(2500); return { ctx, pg };
+  };
+  const isLocked = pg => pg.evaluate(() => typeof locked === 'function' && locked());
+  const v = await fresh('/?fb=1');
+  ok(await isLocked(v.pg) && (await v.pg.textContent('body')).includes('ກຳລັງພັດທະນາ') && !(await v.pg.textContent('body')).includes('ໝໍ້ຫຸງເຂົ້າ'), 'test mode: a visitor without an invite sees the lock page, no products');
+  const t1 = await fresh('/?fb=1&inv=TRY23456');
+  ok(!(await isLocked(t1.pg)) && await until(() => t1.pg.evaluate(() => document.body.textContent.includes('ສິນຄ້ານຳເຂົ້າ'))), 'invite link: the tester gets in and sees the products');
+  ok(!(await t1.pg.evaluate(() => location.search.includes('inv='))), 'the invite code is removed from the address bar');
+  const claimed = await admin(async d => (await getDoc(doc(d, 'invites/TRY23456'))).data());
+  ok(!!claimed.claimedBy && claimed.claimedBy === await t1.pg.evaluate(() => H.uid), 'the invite is now marked as used by that tester');
+  await t1.pg.reload(); await wait(2500);
+  ok(!(await isLocked(t1.pg)), 'refreshing the same tab keeps access');
+  const t1b = await t1.ctx.newPage(); await t1b.goto('http://localhost:5055/?fb=1'); await wait(2500);
+  ok(await isLocked(t1b), 'a new tab (after leaving) is locked again');
+  const t2 = await fresh('/?fb=1&inv=TRY23456');
+  ok(await isLocked(t2.pg) && (await t2.pg.textContent('body')).includes('ໃຊ້ແລ້ວ'), 'the same link a second time: “this invite was already used”');
+  await team0.reload(); await wait(2500);
+  ok(!(await isLocked(team0)), 'the team is never locked out');
+  await stranger.reload(); await wait(2500);
+  ok(!(await isLocked(stranger)), 'a shop owner (linked shop) is never locked out');
+  await admin(d => setDoc(doc(d, 'settings/site'), { private: false }));
+  await wait(1200);
+  ok(!(await isLocked(v.pg)), 'test mode off: everyone gets in again');
+
   await browser.close(); await env.cleanup(); server.close();
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

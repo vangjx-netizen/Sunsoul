@@ -24,6 +24,8 @@ const deny = (name, p) => check(name, p, false);
     await env.withSecurityRulesDisabled(async c => {
       const d = c.firestore();
       await setDoc(doc(d, 'admins/team1'), { name: 'Vang' });
+      await setDoc(doc(d, 'invites/ABCD2345'), { createdAt: 1, note: 'tester' });
+      await setDoc(doc(d, 'invites/USED2345'), { createdAt: 1, claimedBy: 'someone', claimedAt: 2 });
       await setDoc(doc(d, 'orders/r1'), order({ status: 'delivered', deliveredAt: 5, receivedAt: 5, receivedBy: 'customer' }));
       await setDoc(doc(d, 'orders/r2'), order({ status: 'delivered', deliveredAt: 5 }));
       await setDoc(doc(d, 'teamEmails/boss@gmail.com'), { addedAt: 1 });
@@ -151,6 +153,17 @@ const deny = (name, p) => check(name, p, false);
   await deny('buyer cannot undo a delivery the team marked', updateDoc(doc(buyer, 'orders/r2'), { status: 'shipping', deliveredAt: deleteField() }));
   await allow('shop agrees to pack and ship itself', updateDoc(doc(shop, 'orders/o1'), { selfShip: true }));
   await deny('buyer cannot switch who ships the order', updateDoc(doc(buyer, 'orders/o1'), { selfShip: false }));
+  // test-mode invite links
+  await allow('a visitor looks up an invite code', getDoc(doc(stranger, 'invites/ABCD2345')));
+  await deny('…but cannot list all invite codes', getDocs(collection(stranger, 'invites')));
+  await deny('cannot claim an invite for someone else', updateDoc(doc(stranger, 'invites/ABCD2345'), { claimedBy: 'buyer', claimedAt: 3 }));
+  await deny('cannot change the invite note while claiming', updateDoc(doc(stranger, 'invites/ABCD2345'), { claimedBy: 'stranger', claimedAt: 3, note: 'x' }));
+  await allow('a visitor claims an unused invite for themselves', updateDoc(doc(stranger, 'invites/ABCD2345'), { claimedBy: 'stranger', claimedAt: 3 }));
+  await deny('nobody can claim it a second time', updateDoc(doc(buyer, 'invites/ABCD2345'), { claimedBy: 'buyer', claimedAt: 4 }));
+  await deny('a used invite cannot be taken over', updateDoc(doc(stranger, 'invites/USED2345'), { claimedBy: 'stranger', claimedAt: 4 }));
+  await deny('visitors cannot make invites', setDoc(doc(stranger, 'invites/MINE2345'), { createdAt: 5 }));
+  await allow('the team makes invites', setDoc(doc(team, 'invites/TEAM2345'), { createdAt: 5 }));
+  await deny('visitors cannot switch test mode', setDoc(doc(stranger, 'settings/site'), { private: false }));
   await deny('buyer cannot decide own case', setDoc(doc(buyer, 'cases/c8'), { uid: 'buyer', status: 'open', owner: 'us', refund: 999 }));
   await deny('stranger cannot read the case', getDoc(doc(stranger, 'cases/c1')));
   await deny('buyer cannot mark the refund as paid', updateDoc(doc(buyer, 'cases/c1'), { refundedAt: 1 }));

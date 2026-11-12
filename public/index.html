@@ -2763,11 +2763,13 @@ function subscribe(){
  H.db.collection("shops").onSnapshot(s=>{ST.shops=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},err);
  H.db.doc("settings/delivery").onSnapshot(s=>{ST.delivery=s.exists?s.data():null;refresh(true)},err);
  H.db.doc("settings/rules").onSnapshot(s=>{ST.rules=s.exists?s.data():null;refresh()},err);
+ H.db.collection("invites").onSnapshot(s=>{ST.invites=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},()=>{});
  H.db.collection("teamEmails").onSnapshot(s=>{ST.teamEmails=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},()=>{});
  H.db.collection("sellerApps").onSnapshot(s=>{ST.sellerApps=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},()=>{});
  H.db.collection("sellerDecision").onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});ST.sellerDec=m;refresh()},()=>{});
  H.db.doc("settings/pay").onSnapshot(s=>{ST.pay=s.exists?s.data():null;refresh()},err);
  H.db.doc("settings/contact").onSnapshot(s=>{ST.contact=s.exists?s.data():null;refresh()},()=>{});
+ H.db.doc("settings/site").onSnapshot(s=>{ST.site=s.exists?s.data():{};S.siteKnown=true;refresh()},()=>{S.siteKnown=true;refresh()});
  H.db.collection("orders").onSnapshot(s=>{ST.orders=s.docs.map(d=>({...d.data(),id:d.id}));refresh();sweep()},err);
  H.db.collection("cases").onSnapshot(s=>{ST.cases=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},err);
  H.db.collection("shopProducts").onSnapshot(s=>{ST.shopProducts=s.docs.map(d=>({...d.data(),id:d.id}));mergeP();refresh()},()=>{});
@@ -2798,6 +2800,7 @@ function subscribeScoped(){
  H.db.doc("settings/rules").onSnapshot(s=>{ST.rules=s.exists?s.data():null;refresh()},err);
  H.db.doc("settings/pay").onSnapshot(s=>{ST.pay=s.exists?s.data():null;refresh()},err);
  H.db.doc("settings/contact").onSnapshot(s=>{ST.contact=s.exists?s.data():null;refresh()},()=>{});
+ H.db.doc("settings/site").onSnapshot(s=>{ST.site=s.exists?s.data():{};S.siteKnown=true;refresh()},()=>{S.siteKnown=true;refresh()});
  H.db.collection("shopProducts").onSnapshot(s=>{ST.shopProducts=s.docs.map(d=>({...d.data(),id:d.id}));mergeP();refresh()},()=>{});
  H.db.collection("shopOff").onSnapshot(s=>{ST.shopOff=s.docs.map(d=>({...d.data(),id:d.id}));syncOff();refresh()},err);
  H.db.collection("orderPub").onSnapshot(s=>{ST.pub=s.docs.map(d=>({...d.data(),id:d.id}));refresh()},()=>{});
@@ -2824,7 +2827,34 @@ function viewKey(){
  if(S.tab==="home")return S.screen;
  return S.tab;
 }
+/* test mode (settings/site.private): only invited testers, the team and shop owners get past the lock page.
+   An invite link works once; access lasts while that tab stays open (at most 12 hours). */
+const passOk=()=>{try{const v=JSON.parse(sessionStorage.getItem("ss_pass")||"null");return !!v&&v.until>Date.now()}catch(e){return false}};
+const locked=()=>H.scoped&&(!S.siteKnown||(!!(ST.site&&ST.site.private)&&!S.canAdmin&&!ST.shops.some(ownShop)&&!passOk()));
+function lockHtml(){
+ const known=S.siteKnown,why=S.invErr==="used"?T.lkUsed:S.invErr==="bad"?T.lkBad:"";
+ return `<div class="app"><main id="main" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:24px">
+  <div class="logo" style="justify-content:center;font-size:22px">${logoSvg(44)}<span>Sunsoul</span></div>
+  ${known?`<div style="text-align:center"><h1 class="big" style="font-size:22px">${T.lkT}</h1><p class="psub">${T.lkS}</p></div>
+  ${why?`<div class="note" style="background:var(--red-bg);color:var(--bad)">${why}</div>`:""}
+  ${canGoogle()?`<div class="card" style="gap:8px"><span class="psub" style="font-size:13px">${T.lkTeam}</span>
+   <button class="cta" data-x="lggoogle" style="background:#fff;color:#1f1f1f;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px">${gLogo}<span>${T.gBtn}</span></button>
+   ${S.lg&&S.lg.err?`<div class="err">${esc(S.lg.err)}</div>`:""}</div>`:""}`:`<div class="psub" style="text-align:center">${T.loading}</div>`}</main></div>`;
+}
+async function claimInvite(){
+ const m=location.search.match(/[?&]inv=([A-Za-z0-9]+)/);if(!m||!H.db||!H.scoped)return;
+ const code=m[1].toUpperCase();
+ try{history.replaceState(null,"",location.pathname)}catch(e){}
+ try{
+  const r=H.db.doc("invites/"+code),snap=await r.get();
+  if(!snap.exists){S.invErr="bad";return}
+  if((snap.data()||{}).claimedBy){S.invErr="used";return}
+  await r.update({claimedBy:H.uid||"",claimedAt:Date.now()});
+  sessionStorage.setItem("ss_pass",JSON.stringify({code,until:Date.now()+12*3600000}));S.invErr="";
+ }catch(e){S.invErr="used"}
+}
 function render(keep){
+ if(locked()){S.lg=S.lg&&S.lg.step?S.lg:{step:"phone",phone:"",code:"",err:""};$("#app").innerHTML=lockHtml();return}
  const k=viewKey();
  $("#app").innerHTML=`<div class="app">${headerHtml(k)}<main id="main" ${k==="product"?'style="padding:16px"':""}>${mainHtml(k)}</main>${k==="product"?buyHtml():k==="checkout"?"":navHtml(k)}</div>`;
  afterRender(k);
@@ -3296,6 +3326,22 @@ function idCard(){
  <div class="aa" style="justify-content:center"><button class="sbtn" data-x="copyid" style="min-height:34px">📋 ${T.ctCopy}</button>${u?`<a ${lnkBtn} href="${esc(u)}">💬 ${T.ctSendId}</a>`:""}</div></div>`;
 }
 /* who is on the team, by Gmail: works on any device, and survives logging out */
+function siteCfgHtml(){
+ if(!H.scoped)return "";
+ const on=!!(ST.site&&ST.site.private),L=[...(ST.invites||[])].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)),link=c=>location.origin+"/?inv="+c;
+ return `<h2 class="sec">${T.pvT}</h2><section class="card" style="gap:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span><b>${on?"🔒 "+T.pvOn:"🌐 "+T.pvOff}</b><br><small class="psub">${on?T.pvOnS:T.pvOffS}</small></span>
+   <button class="sbtn${on?"":" danger"}" data-x="pvtoggle">${on?T.pvOpen:T.pvClose}</button></div>
+  <div style="display:flex;gap:8px"><input data-inv="1" value="${esc(S.invNote||"")}" placeholder="${T.pvNotePh}" style="flex:1;min-width:0;height:44px;padding:0 12px;border-radius:12px;border:1.5px solid var(--line2);background:var(--card)"><button class="sbtn" data-x="invnew">+ ${T.pvNew}</button></div>
+  ${L.map(x=>`<div style="border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:4px">
+   <div style="display:flex;justify-content:space-between;gap:8px"><b style="font-family:var(--fn)">${esc(x.id)}</b><span class="chip ${x.claimedBy?"g":"a"}">${x.claimedBy?T.pvUsed(dm(x.claimedAt)+" "+hm(x.claimedAt)):T.pvFresh}</span></div>
+   ${x.note?`<span class="psub" style="font-size:13px">${esc(x.note)}</span>`:""}
+   ${x.claimedBy?"":`<span class="psub" style="font-size:12px;overflow-wrap:anywhere">${esc(link(x.id))}</span>
+   <div class="aa"><button class="sbtn" data-x="invcopy" data-id="${esc(x.id)}">${T.copy}</button><a class="sbtn" href="https://wa.me/?text=${encodeURIComponent(T.pvMsg(link(x.id)))}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;color:inherit;text-decoration:none">WhatsApp</a>
+    <button class="sbtn danger" data-x="invdel" data-id="${esc(x.id)}">${S.confirm==="iv"+x.id?T.delSure:T.rm}</button></div>`}</div>`).join("")}</section>`;
+}
+const INV_ABC="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const invCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>INV_ABC[b%INV_ABC.length]).join("");
 function teamMailHtml(){
  if(!H.scoped)return "";
  const L=ST.teamEmails||[];
@@ -3379,7 +3425,7 @@ function feesHtml(){
  const d=DEL(),ts=d.updatedAt?new Date(d.updatedAt):null;
  const two=n=>String(n).padStart(2,"0");
  const pv=[1,d.baseKm,d.baseKm+1,10,d.farKm,d.farKm+10].filter((v,i,a)=>v>0&&a.indexOf(v)===i).sort((x,y)=>x-y);
- return `${teamMailHtml()}${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
+ return `${siteCfgHtml()}${teamMailHtml()}${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
  <div class="zc"><span class="zn" style="background:var(--blue-bg)">◎</span><div class="zt"><b>${T.zT}</b><span>${T.zS}</span></div>
  <label><input data-fzonekm inputmode="numeric" aria-label="${T.zT}" value="${d.zoneKm}">${T.kmShort}</label></div>
  <label class="fld"><span>${T.zCenter} <small>${T.zCenterS}</small></span><input data-fzonell value="${esc(d.zoneLL)}" autocomplete="off" style="font-family:var(--fn)"></label>
@@ -5347,6 +5393,10 @@ app.addEventListener("click",e=>{
   case "copyid":{const v=H.uid||"";try{navigator.clipboard.writeText(v).then(()=>toast(T.copied),()=>toast(v))}catch(e){toast(v)}break}
   case "ctsave":guard(contactSave)();break;
   case "tmadd":guard(tmAdd)();break;
+  case "pvtoggle":guard(async()=>{const on=!(ST.site&&ST.site.private);await H.db.doc("settings/site").set({...(ST.site||{}),private:on,at:Date.now()});toast(on?T.pvOn:T.pvOff)})();break;
+  case "invnew":guard(async()=>{const c=invCode();await H.db.doc("invites/"+c).set({createdAt:Date.now(),by:H.email||H.uid||"",note:String(S.invNote||"").trim()});S.invNote="";toast(T.pvMade)})();break;
+  case "invcopy":{const v=location.origin+"/?inv="+id;try{navigator.clipboard.writeText(v).then(()=>toast(T.copied),()=>toast(v))}catch(e){toast(v)}break}
+  case "invdel":guard(async()=>{if(S.confirm!=="iv"+id){S.confirm="iv"+id;rr();return}S.confirm="";await H.db.doc("invites/"+id).delete()})();break;
   case "tmrm":guard(tmRm)(id);break;
   case "report":S.oid=id;S.rt={reason:"",note:"",imgs:[],video:null};S.tab="home";S.screen="return";render();break;
   case "rtback":S.tab="orders";S.screen="home";rr();break;
@@ -5489,6 +5539,7 @@ app.addEventListener("input",e=>{
  if(d.safnote!==undefined){(S.saf[d.safnote]||(S.saf[d.safnote]={}))["note"]=t.value;return}
  if(d.af!==undefined&&S.af){S.af[d.af]=t.value;if(d.af==="map")clearTimeout(S.afT),S.afT=setTimeout(()=>{if(parseLL(S.af&&S.af.map))rr()},600);return}
  if(d.tm){S.tmNew=t.value;return}
+ if(d.inv){S.invNote=t.value;return}
  if(d.ctf!==undefined){(S.ctDraft||(S.ctDraft={}))[d.ctf]=t.value;return}
  if(d.rtn){const [id,f]=d.rtn.split(":");(S.rtn[id]=S.rtn[id]||{})[f]=t.value;return}
  if(d.rg){const [id,f]=d.rg.split(":");(S.rg[id]=S.rg[id]||{})[f]=t.value;return}
@@ -5741,7 +5792,12 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{grpN:n=>n+" ລາຍການ",grpCard:n=>"ອໍເດີດຽວກັນ "+n+" ລາຍການ",grpCardS:"ສັ່ງພ້ອມກັນ · ຈ່າຍຄັ້ງດຽວດ້ວຍ QR ດຽວ · ຄ່າສົ່ງຄິດຮ້ານລະຄັ້ງ · ແຕະເພື່ອເບິ່ງແຕ່ລະລາຍການ",
+Object.assign(T,{lkT:"Sunsoul ກຳລັງພັດທະນາ",lkS:"ຕອນນີ້ເປີດໃຫ້ສະເພາະຜູ້ໄດ້ຮັບເຊີນທົດສອບ · ພົບກັນໄວໆນີ້ 🙏",
+ lkUsed:"ລິ້ງເຊີນນີ້ໃຊ້ແລ້ວ ຫຼື ໝົດເວລາ · ຂໍລິ້ງໃໝ່ຈາກທີມ Sunsoul",lkBad:"ລິ້ງເຊີນບໍ່ຖືກຕ້ອງ",lkTeam:"ທີມ Sunsoul ແລະ ຮ້ານຄ້າ: ເຂົ້າສູ່ລະບົບດ້ວຍ Google",
+ pvT:"ໂໝດທົດສອບ (ລິ້ງເຊີນ)",pvOn:"ປິດບໍ່ໃຫ້ຄົນທົ່ວໄປເຂົ້າ",pvOff:"ເປີດໃຫ້ທຸກຄົນ",pvOnS:"ຄົນທົ່ວໄປເຫັນໜ້າ “ກຳລັງພັດທະນາ” · ເຂົ້າໄດ້ສະເພາະ ທີມ, ຮ້ານ ແລະ ຄົນມີລິ້ງເຊີນ",
+ pvOffS:"ໃຜມີລິ້ງເວັບກໍເຂົ້າໄດ້",pvOpen:"ເປີດໃຫ້ທຸກຄົນ",pvClose:"ປິດ (ໂໝດທົດສອບ)",pvNotePh:"ໃຫ້ໃຜ? ເຊັ່ນ: ນ້ອຍ (ລູກຄ້າທົດສອບ)",pvNew:"ສ້າງລິ້ງເຊີນ",
+ pvFresh:"ຍັງບໍ່ໃຊ້",pvUsed:t=>"ໃຊ້ແລ້ວ "+t,pvMade:"ສ້າງລິ້ງແລ້ວ · ສົ່ງໃຫ້ຜູ້ທົດສອບ",
+ pvMsg:l=>"ສະບາຍດີ · ເຊີນທົດສອບ Sunsoul (ລິ້ງໃຊ້ໄດ້ຄັ້ງດຽວ · ປິດແທັບແລ້ວເຂົ້າຄືນບໍ່ໄດ້): "+l,grpN:n=>n+" ລາຍການ",grpCard:n=>"ອໍເດີດຽວກັນ "+n+" ລາຍການ",grpCardS:"ສັ່ງພ້ອມກັນ · ຈ່າຍຄັ້ງດຽວດ້ວຍ QR ດຽວ · ຄ່າສົ່ງຄິດຮ້ານລະຄັ້ງ · ແຕະເພື່ອເບິ່ງແຕ່ລະລາຍການ",
  grpWait:n=>"ລໍຮ້ານຢືນຢັນອີກ "+n+" ລາຍການ",grpWaitS:"ເມື່ອຮ້ານຢືນຢັນຄົບທຸກລາຍການ ຈະມີ QR ໃຫ້ຈ່າຍເທື່ອດຽວ ລວມທຸກລາຍການ",grpTag:(i,n)=>"ສັ່ງພ້ອມກັນ "+i+"/"+n,wsT:"ລໍຮ້ານຢືນຢັນ",wsCount:n=>n+" ອໍເດີ · ເຂົ້າກ່ອນ ຢູ່ເທິງ",wsSub:"ອໍເດີທີ່ເຂົ້າມາແລ້ວ ແຕ່ຮ້ານຍັງບໍ່ຢືນຢັນ · ເຂົ້າກ່ອນ ຢູ່ເທິງສຸດ",wsNone:"ບໍ່ມີອໍເດີລໍຮ້ານຢືນຢັນ",
  wsIn:t=>"ເຂົ້າມາ "+t,wsMore:"ຕົວເລືອກເພີ່ມ",wsCxNote:"ຍົກເລີກແທນຮ້ານ ສະເພາະກໍລະນີຈຳເປັນ ເຊັ່ນ ຕິດຕໍ່ຮ້ານບໍ່ໄດ້ ຫຼື ຮ້ານແຈ້ງທາງໂທລະສັບ",
  wsCx:"ຍົກເລີກອໍເດີແທນຮ້ານ",wsCxSure:"ກົດອີກຄັ້ງ ເພື່ອຍົກເລີກອໍເດີ",wsLate:n=>n+" ອໍເດີ ຮ້ານໃກ້ໝົດເວລາຕອບ",wsOpen:"ເບິ່ງລາຍການ",sgTeamWrong:"ທີມໄປຮັບເຄື່ອງ · ໄດ້ຂອງຜິດ (ໄຊສ໌ / ລຸ້ນ / ສີ) ແມ່ນຮ້ານໃຫ້ຜິດ → ຮ້ານຮັບຜິດຊອບ",
@@ -5865,7 +5921,7 @@ render();
  try{S.canAdmin=!!(user&&typeof user.canEdit==="function"&&(await user.canEdit())===true)}catch(e){S.canAdmin=false}
  try{H.uid=user&&typeof user.id==="function"?await user.id():null}catch(e){H.uid=null}
  try{H.email=user&&typeof user.email==="function"?(await user.email())||"":""}catch(e){H.email=""}
- subscribe();await loadProfile();render();
+ await claimInvite();subscribe();await loadProfile();render();
  if(LS.get("ss_gteam")){LS.del("ss_gteam");if(S.canAdmin){toast(T.tmIn);S.tab="team";S.sub="overview";render()}}
  if(assets&&typeof assets.list==="function"){try{const L=await assets.list();(L.assets||[]).forEach(a=>{if(a&&a.id&&a.url)URLMAP[a.id]=a.url});backfilled=false;MCHK.clear();render();backfillMirrors()}catch(e){}}
 })();
