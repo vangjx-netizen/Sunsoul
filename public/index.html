@@ -2903,7 +2903,7 @@ function homeHtml(){
  ${(()=>{const a=saMine(),d=saDec(a),st=saState(a);if(!a||!d||st==="pending"||String(d.at)===LS.get("sa_seen"))return "";return `<button class="arow2" data-x="sellopen" style="width:100%;text-align:left;border:2px solid ${st==="approved"?"var(--green)":"var(--bad)"};font-size:15px"><span>${st==="approved"?"🎉":"📋"} <b>${esc(T.saStT[st])}</b></span><span style="font-weight:700">${T.unseenBtn} ›</span></button>`})()}
  ${S.user&&myOrders().some(caseNew)?`<button class="arow2" data-x="casego" style="width:100%;text-align:left;border:2px solid var(--bad);font-size:15px"><span>📋 <b>${T.caseHome(myOrders().filter(caseNew).length)}</b></span><span style="color:var(--bad);font-weight:700">${T.unseenBtn} ›</span></button>`:""}
  ${S.user&&payPending().some(o=>o.slipRejected)?`<button class="arow2" data-x="paygo" style="width:100%;text-align:left;border:2px solid var(--bad);font-size:15px"><span>⚠ <b>${T.slipHome}</b></span><span style="color:var(--bad);font-weight:700">${T.unseenBtn} ›</span></button>`:""}
- ${S.user&&payPending().some(o=>!o.slipRejected)?`<button class="arow2" data-x="paygo" style="width:100%;text-align:left;border:2px solid var(--accent);font-size:15px"><span>💳 <b>${T.payHome(payPending().filter(o=>!o.slipRejected).length)}</b></span><span style="color:var(--accent);font-weight:700">${T.payBtnShort} ›</span></button>`:""}
+ ${S.user&&payPending().some(o=>!o.slipRejected)?`<button class="arow2" data-x="paygo" style="width:100%;text-align:left;border:2px solid var(--accent);font-size:15px"><span>💳 <b>${T.payHome(groupsOf(payPending().filter(o=>!o.slipRejected)).length)}</b></span><span style="color:var(--accent);font-weight:700">${T.payBtnShort} ›</span></button>`:""}
  ${S.user&&rcvPending().length?`<button class="arow2" data-x="rcvgo" style="width:100%;text-align:left;border:2px solid var(--green);font-size:15px"><span>📦 <b>${T.rcvHome(rcvPending().length)}</b></span><span style="color:var(--green);font-weight:700">${T.rcvBtnShort} ›</span></button>`:""}
  ${locBarHtml()}
  <div class="trust">${[["check",T.tr1],["ret",T.tr2],["truck",T.tr3]].map(([i,l])=>`<div>${ic(i,20,2.2)}<span>${l}</span></div>`).join("")}</div>
@@ -4078,8 +4078,23 @@ function ordersListHtml0(){
  const L=myOrders();
  if(!L.length)return `<div class="empty" style="margin-top:20px"><b>${T.ordNone}</b><div style="margin-top:6px;font-size:14px">${T.ordNoneSub}</div></div>`;
  const act=L.filter(o=>!ordDone(o)),old=L.filter(ordDone);
- return `${act.length?`<div style="display:flex;flex-direction:column;gap:10px">${act.map(orderRow).join("")}</div>`:`<div class="empty" style="margin-top:8px">${T.ordNoActive}</div>`}
+ return `${act.length?`<div style="display:flex;flex-direction:column;gap:10px">${groupsOf(act).map(groupRow).join("")}</div>`:`<div class="empty" style="margin-top:8px">${T.ordNoActive}</div>`}
  ${old.length?`<button class="sbtn" data-x="showold" style="align-self:center">${S.showOld?T.ordHideOld:T.ordShowOld(old.length)}</button>${S.showOld?`<div style="display:flex;flex-direction:column;gap:10px;opacity:.85">${old.map(o=>canHide(o)?`<div class="orw">${orderRow(o)}<button class="sbtn danger" data-x="chide" data-id="${esc(o.id)}" aria-label="${T.hideOne}">${S.confirm==="ch"+o.id?T.hideSure:"✕"}</button></div>`:orderRow(o)).join("")}${old.filter(canHide).length>1?`<button class="sbtn danger" data-x="chideall" style="align-self:center">${S.confirm==="chall"?T.hideSure:T.hideAll(old.filter(canHide).length)}</button>`:""}</div>`:""}`:""}`;
+}
+/* one cart order (same gid) is shown as one; the shop still confirms each item */
+const sibsOf=o=>o&&o.gid?ST.orders.filter(x=>x.gid===o.gid).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)):[o];
+const RANK=["await_pay","await_verify","await_shop","await_pickup","shipping","delivered","declined","cancelled"];
+const groupLead=G=>[...G].sort((a,b)=>RANK.indexOf(a.status)-RANK.indexOf(b.status))[0];
+function groupsOf(L){const m=new Map();L.forEach(o=>{const k=o.gid||o.id;if(!m.has(k))m.set(k,[]);m.get(k).push(o)});return [...m.values()]}
+function groupRow(G){
+ if(G.length<2)return orderRow(G[0]);
+ const lead=groupLead(G),shops=[...new Set(G.map(x=>x.shopName).filter(Boolean))].join(", ");
+ return `<button class="orow" data-x="oopen" data-id="${esc(lead.id)}"><span><b>🛒 ${T.grpN(G.length)}${shops?" · "+esc(shops):""}</b><small>${G.map(x=>esc(x.pname)).join(" · ")}</small><small>${G.map(x=>"#"+esc(x.no)).join(" · ")} · ${dm(lead.createdAt)}</small></span>${chip(lead)}</button>`;
+}
+function groupCardHtml(o){
+ const G=sibsOf(o);if(G.length<2)return "";
+ return `<section class="card" style="gap:6px"><b>🛒 ${T.grpCard(G.length)}</b><span class="psub" style="font-size:12px">${T.grpCardS}</span>
+  ${G.map(x=>`<button class="orow" data-x="oopen" data-id="${esc(x.id)}" style="${x.id===o.id?"border:2px solid var(--accent)":""}"><span><b>${esc(x.pname)}</b><small>${esc(x.vlabel||"")} × ${x.qty||1} · #${esc(x.no)}</small></span>${chip(x)}</button>`).join("")}</section>`;
 }
 function orderRow(o){
  const c=caseOf(o);
@@ -4153,12 +4168,13 @@ function orderDetailHtml(o){
   <span class="psub">${o.status==="declined"?T.soldOutSub:""}<br><b>${gotOf(o)>0?(o.refundedAt||(LK(o)||{}).refundedAt?T.rfDone(gotOf(o)):T.rfWait(gotOf(o))):T.noPayHint}</b></span>${o.refundProof?`<div style="display:flex;gap:10px;align-items:center">${thumb(o.refundProof)}<span class="psub" style="font-size:12px">${T.rfProofCust}</span></div>`:""}</section>${similarHtml(o)}
   <button class="cta" data-x="gohome2">${T.searchAgain}</button>`;
  }
- let body=refShow(o)+timelineHtml(o);
+ let body=groupCardHtml(o)+refShow(o)+timelineHtml(o);
  if(dMode(o)==="door"){if(["await_pickup","shipping"].includes(o.status))body+=`<div class="note" style="border:2px solid var(--accent);text-align:left">👀 <b>${T.doorT}</b><br><span style="font-size:13px">${T.doorS}</span></div>`}
  else if(["await_pickup","shipping"].includes(o.status)||(o.status==="delivered"&&!rcvd(o)))body+=unboxNote();
  if(o.status==="delivered"&&dMode(o)==="door"&&(o.delPhotos||[]).length)body+=`<section class="card">${photoRow("📷 "+T.doorPh,o.delPhotos)}${o.doorChecked&&!o.refusedAt?`<span class="psub" style="font-size:12px">✓ ${T.doorCheckedNote}</span>`:""}</section>`;
  if(o.status==="await_pay"){
-  body+=!hasDue(o)?`<div class="note">${T.feeWait}</div>`:payBox(o);
+  {const wait=sibsOf(o).filter(x=>x.status==="await_shop").length;
+   body+=wait?`<div class="note" style="text-align:left">⏳ <b>${T.grpWait(wait)}</b><br><span style="font-size:13px">${T.grpWaitS}</span></div>`:!hasDue(o)?`<div class="note">${T.feeWait}</div>`:payBox(o);}
  }else if(isCod(o)&&LK(o)&&(o.status==="await_pickup"||o.status==="shipping")){
   body+=`<div class="note" style="font-weight:700">${T.codPrep(dueOf(o))}</div>`;
  }else if(o.status==="await_verify"){
@@ -4440,7 +4456,7 @@ function sCard(o){
  const wait=o.status==="await_shop",expired=wait&&o.shopDeadline<Date.now();
  return `<section class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>#${esc(o.no)}</b>
  ${wait?`<span class="chip a">${expired?T.shExpired:T.shAnswerIn+" "+cdSpan(o.shopDeadline)}</span>`:o.status==="declined"?`<span class="chip r">${T.shDec}</span>`:`<span class="chip g">${o.status==="await_pay"?T.shAcc:esc(T.st[o.status]||o.status)}</span>`}</div>
- <div class="arow" style="border:0;padding:0"><div class="th">${thumb(o.img,"th")}</div><div class="am"><b>${esc(o.pname)}</b><div>${esc(o.vlabel)} · ${o.qty||1}</div><div style="font-family:var(--fn)">${fmt(orderGoods(o))} ${T.kip}</div></div></div>${refShow(o)}
+ <div class="arow" style="border:0;padding:0"><div class="th">${thumb(o.img,"th")}</div><div class="am"><b>${esc(o.pname)}</b><div>${esc(o.vlabel)} · ${o.qty||1}</div><div style="font-family:var(--fn)">${fmt(orderGoods(o))} ${T.kip}</div>${(()=>{const G=sibsOf(o).filter(x=>x.shopId===o.shopId);return G.length>1?`<span class="chip b" style="align-self:flex-start">🛒 ${T.grpTag(G.findIndex(x=>x.id===o.id)+1,G.length)}</span>`:""})()}</div></div>${refShow(o)}
  ${wait&&o.askSelfShip&&!o.selfShip?`<div class="note" style="text-align:left;border:2px solid var(--accent)">🚚 <b>${T.ssT}</b><br><span style="font-size:13px">${T.ssS(esc(o.addr||""))}</span></div>
   <button class="cta" style="background:var(--green)" data-x="sself" data-id="${esc(o.id)}">✓ ${T.ssYes}</button>
   <button class="sbtn danger" data-x="snoship" data-id="${esc(o.id)}">${S.confirm==="ns"+o.id?T.ssNoSure:"✕ "+T.ssNo}</button>`
@@ -5166,7 +5182,7 @@ async function sweep(){
   const now=Date.now();
   for(const o of ST.orders){
    if(o.status==="await_shop"&&o.shopDeadline&&o.shopDeadline<now)await setOrder(o,{status:"cancelled",cancelWhy:"shop"},"system","await_shop");
-   else if(o.status==="await_pay"&&!o.slipRejected&&o.payDeadline&&o.payDeadline<now)await setOrder(o,{status:"cancelled",cancelWhy:"pay"},"system","await_pay");
+   else if(o.status==="await_pay"&&!o.slipRejected&&o.payDeadline&&Math.max(...sibsOf(o).map(x=>x.status==="await_pay"&&x.payDeadline||0))<now&&!sibsOf(o).some(x=>x.status==="await_shop"))await setOrder(o,{status:"cancelled",cancelWhy:"pay"},"system","await_pay");
   }
  }catch(e){}
  sweeping=false;
@@ -5626,7 +5642,8 @@ Object.assign(T,{vPhotoRm:"ລຶບຮູບຂອງຕົວເລືອກ�
 const cxAt=o=>{const h=(o.history||[]).filter(x=>x.s==="cancelled").pop();return h?h.at:(o.createdAt||0)};
 const shopCancelled=shopId=>{const s=byId(ST.shops,shopId);return ST.orders.filter(o=>o.status==="cancelled"&&o.cancelWhy==="customer"&&!o.shopHidden&&!!s&&(o.shopId===s.id||(!o.shopId&&norm(o.shopName)===norm(s.name)))).sort((a,b)=>cxAt(b)-cxAt(a))};
 const markSeen=id=>{const o=byId(ST.orders,id);if(o&&custUnseen(o))setOrder(o,{custSeen:true},"customer").catch(()=>{});if(o&&caseNew(o)){const c=caseOf(o);caseSet(c.id,{custSeenAt:Date.now()}).catch(()=>{})}};
-const ordAlerts=()=>S.user?myOrders().filter(o=>custUnseen(o)||caseNew(o)||(o.status==="await_pay"&&hasDue(o))).length:0;
+/* counted per cart order: two items bought together are one order */
+const ordAlerts=()=>S.user?groupsOf(myOrders().filter(o=>custUnseen(o)||caseNew(o)||(o.status==="await_pay"&&hasDue(o)))).length:0;
 const custCanCancel=o=>o.status==="await_shop"||(o.status==="await_pay"&&!o.slipId&&!payGroup(o).some(x=>gotOf(x)>0));
 const custCancel=guard(async id=>{
  const o=byId(ST.orders,id);if(!o||!custCanCancel(o))throw new Error(T.stale);
@@ -5724,7 +5741,8 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{wsT:"ລໍຮ້ານຢືນຢັນ",wsCount:n=>n+" ອໍເດີ · ເຂົ້າກ່ອນ ຢູ່ເທິງ",wsSub:"ອໍເດີທີ່ເຂົ້າມາແລ້ວ ແຕ່ຮ້ານຍັງບໍ່ຢືນຢັນ · ເຂົ້າກ່ອນ ຢູ່ເທິງສຸດ",wsNone:"ບໍ່ມີອໍເດີລໍຮ້ານຢືນຢັນ",
+Object.assign(T,{grpN:n=>n+" ລາຍການ",grpCard:n=>"ອໍເດີດຽວກັນ "+n+" ລາຍການ",grpCardS:"ສັ່ງພ້ອມກັນ · ຈ່າຍຄັ້ງດຽວດ້ວຍ QR ດຽວ · ຄ່າສົ່ງຄິດຮ້ານລະຄັ້ງ · ແຕະເພື່ອເບິ່ງແຕ່ລະລາຍການ",
+ grpWait:n=>"ລໍຮ້ານຢືນຢັນອີກ "+n+" ລາຍການ",grpWaitS:"ເມື່ອຮ້ານຢືນຢັນຄົບທຸກລາຍການ ຈະມີ QR ໃຫ້ຈ່າຍເທື່ອດຽວ ລວມທຸກລາຍການ",grpTag:(i,n)=>"ສັ່ງພ້ອມກັນ "+i+"/"+n,wsT:"ລໍຮ້ານຢືນຢັນ",wsCount:n=>n+" ອໍເດີ · ເຂົ້າກ່ອນ ຢູ່ເທິງ",wsSub:"ອໍເດີທີ່ເຂົ້າມາແລ້ວ ແຕ່ຮ້ານຍັງບໍ່ຢືນຢັນ · ເຂົ້າກ່ອນ ຢູ່ເທິງສຸດ",wsNone:"ບໍ່ມີອໍເດີລໍຮ້ານຢືນຢັນ",
  wsIn:t=>"ເຂົ້າມາ "+t,wsMore:"ຕົວເລືອກເພີ່ມ",wsCxNote:"ຍົກເລີກແທນຮ້ານ ສະເພາະກໍລະນີຈຳເປັນ ເຊັ່ນ ຕິດຕໍ່ຮ້ານບໍ່ໄດ້ ຫຼື ຮ້ານແຈ້ງທາງໂທລະສັບ",
  wsCx:"ຍົກເລີກອໍເດີແທນຮ້ານ",wsCxSure:"ກົດອີກຄັ້ງ ເພື່ອຍົກເລີກອໍເດີ",wsLate:n=>n+" ອໍເດີ ຮ້ານໃກ້ໝົດເວລາຕອບ",wsOpen:"ເບິ່ງລາຍການ",sgTeamWrong:"ທີມໄປຮັບເຄື່ອງ · ໄດ້ຂອງຜິດ (ໄຊສ໌ / ລຸ້ນ / ສີ) ແມ່ນຮ້ານໃຫ້ຜິດ → ຮ້ານຮັບຜິດຊອບ",
  sgTeamDmg:"ທີມໄປຮັບເຄື່ອງ · ເສຍຫາຍ / ກ່ອງເປົ່າ / ຂອງບໍ່ຄົບ ເກີດໃນມືທີມ → Sunsoul ຮັບຜິດຊອບ",
