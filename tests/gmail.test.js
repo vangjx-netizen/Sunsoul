@@ -8,7 +8,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
   await p.goto('file://' + path.join(__dirname, '..', 'public', 'index.html')); await p.waitForTimeout(300);
   await p.evaluate(() => {
     ST.shops.push({ id: 'm1', name: 'Mail Shop', phone: '020 1111 2222', ownerEmail: 'owner@gmail.com' }, { id: 'u1', name: 'Uid Shop', ownerUid: 'dev-1' });
-    H.scoped = true; H.uid = 'phone-uid'; H.email = '';
+    H.scoped = true; S.siteKnown = true; H.uid = 'phone-uid'; H.email = '';
   });
   ok(await p.evaluate(() => !ownShop(byId(ST.shops, 'm1'))), 'without the Gmail: not the owner');
   await p.evaluate(() => { H.email = 'owner@gmail.com'; });

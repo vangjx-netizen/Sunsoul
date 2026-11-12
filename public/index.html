@@ -2854,7 +2854,8 @@ async function claimInvite(){
  }catch(e){S.invErr="used"}
 }
 function render(keep){
- if(locked()){S.lg=S.lg&&S.lg.step?S.lg:{step:"phone",phone:"",code:"",err:""};$("#app").innerHTML=lockHtml();return}
+ S.wasLocked=locked();
+ if(S.wasLocked){S.lg=S.lg&&S.lg.step?S.lg:{step:"phone",phone:"",code:"",err:""};$("#app").innerHTML=lockHtml();return}
  const k=viewKey();
  $("#app").innerHTML=`<div class="app">${headerHtml(k)}<main id="main" ${k==="product"?'style="padding:16px"':""}>${mainHtml(k)}</main>${k==="product"?buyHtml():k==="checkout"?"":navHtml(k)}</div>`;
  afterRender(k);
@@ -3465,6 +3466,8 @@ async function saveFees(){
 /* ---- live refresh ---- */
 function refresh(feesChanged){
  if(!$("#app"))return;
+ /* the lock page has none of the parts refresh() updates: switching lock ↔ page needs a full render */
+ if(S.wasLocked!==locked()){render();return}
  if(H.scoped)watchMyShops();
  const k=viewKey(),ae=document.activeElement;
  if(!$("#app .app")){render();return}

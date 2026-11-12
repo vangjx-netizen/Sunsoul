@@ -234,7 +234,7 @@ async function pickPhoto(p, selector) {
   // a capital shop that chose "no door delivery" behaves like a far shop
   await p.evaluate(() => { ST.shops.push({ id: 'sS', name: 'Shop Self', phone: '020 4444 5555', type: 'shop', prov: 'ນະຄອນຫຼວງວຽງຈັນ', pickup: 'self', map: '17.9700, 102.6100' }); ST.tp.push({ id: 'pS', name: 'Lamp', cat: 'home', shopId: 'sS', shopName: 'Shop Self', variants: [{ label: '—', price: 80000, stock: 2 }], imgs: [], active: true, createdAt: 1, stockAt: 1, updatedAt: 9 }); mergeP(); S.tab = 'home'; S.screen = 'home'; S.name = ''; S.cat = ''; S.budget = 0; render(); });
   ok(await p.evaluate(() => pMode(byId(ST.products, 'pS')) === 'shop' && dMode({ shopId: 'sS', kind: 'local' }) === 'shop' && autoFee({ shopId: 'sS', kind: 'local', ll: { lat: 17.97, lng: 102.63 } }) === 0), 'capital shop with "no door delivery" → shop ships, no door fee');
-  ok((await p.textContent('#feed')).includes('ບໍ່ມີສົ່ງຮອດເຮືອນ'), 'feed card says "no door delivery"');
+  ok((await p.textContent('#feed')).includes(await p.evaluate(() => T.shopShort)), 'feed card says "no door delivery" (shop ships)');
   await p.evaluate(() => { S.pid = 'pS'; S.vi = 0; S.screen = 'product'; render(); });
   ok((await p.textContent('main')).includes('ບໍ່ມີບໍລິການສົ່ງຮອດເຮືອນ'), 'product page says "no door delivery service"');
   ok(await p.evaluate(() => { S.sdraft = { id: 'x', name: 'X', type: 'shop', prov: 'ຫຼວງພະບາງ', pickup: 'team', phone: '', map: '', addr: '', bank: '', account: '', agreed: true }; return true }), 'setup');
