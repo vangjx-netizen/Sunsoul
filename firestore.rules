@@ -46,6 +46,12 @@ service cloud.firestore {
       allow update: if isTeam() || (signedIn() && resource.data.get('claimedBy', '') == '' && newData().claimedBy == me()
         && newData().diff(resource.data).affectedKeys().hasOnly(['claimedBy', 'claimedAt']));
     }
+    // devices that came in with an invite link; written by that visitor right after claiming it
+    match /testers/{uid} {
+      allow get: if signedIn() && (me() == uid || isTeam());
+      allow list: if isTeam();
+      allow create: if signedIn() && me() == uid && get(/databases/$(database)/documents/invites/$(newData().code)).data.get('claimedBy', '') == me();
+    }
     match /teamEmails/{email} { allow get: if signedIn() && (myEmail() == email || isTeam()); allow list, write: if isTeam(); }
 
     // products a shop lists itself

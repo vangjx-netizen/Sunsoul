@@ -184,6 +184,19 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   await admin(d => setDoc(doc(d, 'settings/site'), { private: false }));
   await wait(1200);
   ok(!(await isLocked(v.pg)), 'test mode off: everyone gets in again');
+  // main link open to everyone; a tester who came with an invite cannot come back once the visit is over
+  await admin(d => setDoc(doc(d, 'invites/OPEN2345'), { createdAt: Date.now(), note: 'tester 2' }));
+  const t3 = await fresh('/?fb=1&inv=OPEN2345');
+  ok(!(await isLocked(t3.pg)) && await until(() => t3.pg.evaluate(() => document.body.textContent.includes('ສິນຄ້ານຳເຂົ້າ'))), 'site open + invite link: the tester gets in');
+  const t3b = await t3.ctx.newPage(); await t3b.goto('http://localhost:5055/?fb=1'); await wait(2500);
+  ok(await isLocked(t3b) && (await t3b.textContent('body')).includes('ຂອບໃຈທີ່ຊ່ວຍທົດສອບ'), 'the tester comes back through the MAIN link in a new tab → locked, “thanks for testing”');
+  const uid3 = await t3.pg.evaluate(() => H.uid);
+  ok(!!(await admin(async d => (await getDoc(doc(d, 'testers/' + uid3))).exists())), 'the device is remembered on the server as a tester');
+  await t3b.evaluate(() => { try { localStorage.clear(); } catch (e) {} }); await t3b.reload(); await wait(2500);
+  ok(await isLocked(t3b), 'clearing the browser storage does not get the tester back in');
+  const pub = await fresh('/?fb=1');
+  ok(!(await isLocked(pub.pg)), 'anyone else using the main link gets in as normal');
+
 
   await browser.close(); await env.cleanup(); server.close();
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

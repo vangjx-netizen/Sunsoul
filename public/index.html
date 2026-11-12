@@ -2830,18 +2830,23 @@ function viewKey(){
 /* test mode (settings/site.private): only invited testers, the team and shop owners get past the lock page.
    An invite link works once; access lasts while that tab stays open (at most 12 hours). */
 const passOk=()=>{try{const v=JSON.parse(sessionStorage.getItem("ss_pass")||"null");return !!v&&v.until>Date.now()}catch(e){return false}};
-const locked=()=>H.scoped&&(!S.siteKnown||(!!(ST.site&&ST.site.private)&&!S.canAdmin&&!ST.shops.some(ownShop)&&!passOk()));
+/* locked for: everyone in test mode, and — even with the site open to all — a device that came in with an invite link
+   once its visit is over (tab closed or 12 hours), so a tester cannot come back through the main link either */
+const isTester=()=>{try{if(localStorage.getItem("ss_tester"))return true}catch(e){}return !!S.testerDoc};
+const locked=()=>H.scoped&&(!S.siteKnown||(!S.canAdmin&&!ST.shops.some(ownShop)&&!passOk()&&(!!(ST.site&&ST.site.private)||isTester())));
 function lockHtml(){
- const known=S.siteKnown,why=S.invErr==="used"?T.lkUsed:S.invErr==="bad"?T.lkBad:"";
+ const known=S.siteKnown,why=S.invErr==="used"?T.lkUsed:S.invErr==="bad"?T.lkBad:"",done=!why&&isTester()&&!(ST.site&&ST.site.private);
  return `<div class="app"><main id="main" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:24px">
   <div class="logo" style="justify-content:center;font-size:22px">${logoSvg(44)}<span>Sunsoul</span></div>
-  ${known?`<div style="text-align:center"><h1 class="big" style="font-size:22px">${T.lkT}</h1><p class="psub">${T.lkS}</p></div>
+  ${known?`<div style="text-align:center"><h1 class="big" style="font-size:22px">${done?T.lkDoneT:T.lkT}</h1><p class="psub">${done?T.lkDoneS:T.lkS}</p></div>
   ${why?`<div class="note" style="background:var(--red-bg);color:var(--bad)">${why}</div>`:""}
   ${canGoogle()?`<div class="card" style="gap:8px"><span class="psub" style="font-size:13px">${T.lkTeam}</span>
    <button class="cta" data-x="lggoogle" style="background:#fff;color:#1f1f1f;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px">${gLogo}<span>${T.gBtn}</span></button>
    ${S.lg&&S.lg.err?`<div class="err">${esc(S.lg.err)}</div>`:""}</div>`:""}`:`<div class="psub" style="text-align:center">${T.loading}</div>`}</main></div>`;
 }
 async function claimInvite(){
+ /* a device that has used an invite before is remembered on the server too (survives clearing the browser's storage) */
+ if(H.db&&H.scoped&&H.uid){try{S.testerDoc=(await H.db.doc("testers/"+H.uid).get()).exists}catch(e){}}
  const m=location.search.match(/[?&]inv=([A-Za-z0-9]+)/);if(!m||!H.db||!H.scoped)return;
  const code=m[1].toUpperCase();
  try{history.replaceState(null,"",location.pathname)}catch(e){}
@@ -2851,6 +2856,8 @@ async function claimInvite(){
   if((snap.data()||{}).claimedBy){S.invErr="used";return}
   await r.update({claimedBy:H.uid||"",claimedAt:Date.now()});
   sessionStorage.setItem("ss_pass",JSON.stringify({code,until:Date.now()+12*3600000}));S.invErr="";
+  try{localStorage.setItem("ss_tester",code)}catch(e){}
+  try{await H.db.doc("testers/"+H.uid).set({code,at:Date.now()})}catch(e){}
  }catch(e){S.invErr="used"}
 }
 function render(keep){
@@ -5795,10 +5802,10 @@ Object.assign(T,{wnQ:"ທ່ານຕ້ອງການແບບໃດ?",wnRefun
   ex:"ທີມຕັດສິນວ່າຮ້ານຮັບຜິດຊອບ ແລະ ລູກຄ້າຂໍປ່ຽນ · ກະລຸນາກຽມສິນຄ້າໃໝ່ທີ່ຖືກຕ້ອງຕາມອໍເດີ ແລ້ວກົດປຸ່ມລຸ່ມນີ້ · ທີມຈະຕິດຕໍ່ນັດຮັບ-ສົ່ງ ແລະ ເອົາເຄື່ອງເກົ່າຄືນໃຫ້ຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ ຫຼັງປ່ຽນໃຫ້ລູກຄ້າແລ້ວ",
   other:"ປິດເລື່ອງແລ້ວ · ບໍ່ແມ່ນຄວາມຮັບຜິດຊອບຂອງຮ້ານ · ຮ້ານໄດ້ຮັບເງິນອໍເດີນີ້ຕາມປົກກະຕິ"},
  scReadyBtn:"ກຽມສິນຄ້າໃໝ່ພ້ອມແລ້ວ",scReady:"ແຈ້ງທີມແລ້ວວ່າສິນຄ້າໃໝ່ພ້ອມ · ລໍທີມຕິດຕໍ່",scSeen:"ຮັບຊາບແລ້ວ"});
-Object.assign(T,{lkT:"Sunsoul ກຳລັງພັດທະນາ",lkS:"ຕອນນີ້ເປີດໃຫ້ສະເພາະຜູ້ໄດ້ຮັບເຊີນທົດສອບ · ພົບກັນໄວໆນີ້ 🙏",
+Object.assign(T,{lkDoneT:"ຂອບໃຈທີ່ຊ່ວຍທົດສອບ Sunsoul 🙏",lkDoneS:"ລິ້ງເຊີນໃຊ້ໄດ້ຄັ້ງດຽວ · ຖ້າຢາກທົດສອບອີກ ຂໍລິ້ງໃໝ່ຈາກທີມ Sunsoul",lkT:"Sunsoul ກຳລັງພັດທະນາ",lkS:"ຕອນນີ້ເປີດໃຫ້ສະເພາະຜູ້ໄດ້ຮັບເຊີນທົດສອບ · ພົບກັນໄວໆນີ້ 🙏",
  lkUsed:"ລິ້ງເຊີນນີ້ໃຊ້ແລ້ວ ຫຼື ໝົດເວລາ · ຂໍລິ້ງໃໝ່ຈາກທີມ Sunsoul",lkBad:"ລິ້ງເຊີນບໍ່ຖືກຕ້ອງ",lkTeam:"ທີມ Sunsoul ແລະ ຮ້ານຄ້າ: ເຂົ້າສູ່ລະບົບດ້ວຍ Google",
  pvT:"ໂໝດທົດສອບ (ລິ້ງເຊີນ)",pvOn:"ປິດບໍ່ໃຫ້ຄົນທົ່ວໄປເຂົ້າ",pvOff:"ເປີດໃຫ້ທຸກຄົນ",pvOnS:"ຄົນທົ່ວໄປເຫັນໜ້າ “ກຳລັງພັດທະນາ” · ເຂົ້າໄດ້ສະເພາະ ທີມ, ຮ້ານ ແລະ ຄົນມີລິ້ງເຊີນ",
- pvOffS:"ໃຜມີລິ້ງເວັບກໍເຂົ້າໄດ້",pvOpen:"ເປີດໃຫ້ທຸກຄົນ",pvClose:"ປິດ (ໂໝດທົດສອບ)",pvNotePh:"ໃຫ້ໃຜ? ເຊັ່ນ: ນ້ອຍ (ລູກຄ້າທົດສອບ)",pvNew:"ສ້າງລິ້ງເຊີນ",
+ pvOffS:"ລິ້ງຫຼັກເປີດປົກກະຕິ · ລິ້ງເຊີນຍັງໃຊ້ໄດ້: ຄົນທີ່ເຂົ້າດ້ວຍລິ້ງເຊີນ ປິດແທັບແລ້ວ ເຂົ້າຄືນບໍ່ໄດ້ (ທັງລິ້ງເຊີນ ແລະ ລິ້ງຫຼັກ)",pvOpen:"ເປີດໃຫ້ທຸກຄົນ",pvClose:"ປິດ (ໂໝດທົດສອບ)",pvNotePh:"ໃຫ້ໃຜ? ເຊັ່ນ: ນ້ອຍ (ລູກຄ້າທົດສອບ)",pvNew:"ສ້າງລິ້ງເຊີນ",
  pvFresh:"ຍັງບໍ່ໃຊ້",pvUsed:t=>"ໃຊ້ແລ້ວ "+t,pvMade:"ສ້າງລິ້ງແລ້ວ · ສົ່ງໃຫ້ຜູ້ທົດສອບ",
  pvMsg:l=>"ສະບາຍດີ · ເຊີນທົດສອບ Sunsoul (ລິ້ງໃຊ້ໄດ້ຄັ້ງດຽວ · ປິດແທັບແລ້ວເຂົ້າຄືນບໍ່ໄດ້): "+l,grpN:n=>n+" ລາຍການ",grpCard:n=>"ອໍເດີດຽວກັນ "+n+" ລາຍການ",grpCardS:"ສັ່ງພ້ອມກັນ · ຈ່າຍຄັ້ງດຽວດ້ວຍ QR ດຽວ · ຄ່າສົ່ງຄິດຮ້ານລະຄັ້ງ · ແຕະເພື່ອເບິ່ງແຕ່ລະລາຍການ",
  grpWait:n=>"ລໍຮ້ານຢືນຢັນອີກ "+n+" ລາຍການ",grpWaitS:"ເມື່ອຮ້ານຢືນຢັນຄົບທຸກລາຍການ ຈະມີ QR ໃຫ້ຈ່າຍເທື່ອດຽວ ລວມທຸກລາຍການ",grpTag:(i,n)=>"ສັ່ງພ້ອມກັນ "+i+"/"+n,wsT:"ລໍຮ້ານຢືນຢັນ",wsCount:n=>n+" ອໍເດີ · ເຂົ້າກ່ອນ ຢູ່ເທິງ",wsSub:"ອໍເດີທີ່ເຂົ້າມາແລ້ວ ແຕ່ຮ້ານຍັງບໍ່ຢືນຢັນ · ເຂົ້າກ່ອນ ຢູ່ເທິງສຸດ",wsNone:"ບໍ່ມີອໍເດີລໍຮ້ານຢືນຢັນ",
