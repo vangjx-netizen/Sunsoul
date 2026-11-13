@@ -3433,7 +3433,7 @@ function feesHtml(){
  const d=DEL(),ts=d.updatedAt?new Date(d.updatedAt):null;
  const two=n=>String(n).padStart(2,"0");
  const pv=[1,d.baseKm,d.baseKm+1,10,d.farKm,d.farKm+10].filter((v,i,a)=>v>0&&a.indexOf(v)===i).sort((x,y)=>x-y);
- return `${siteCfgHtml()}${teamMailHtml()}${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
+ return `<div id="cfgtop">${siteCfgHtml()}${teamMailHtml()}</div>${importHtml()}${contactCfgHtml()}${payCfgHtml()}<h2 class="sec">${T.pcFees}</h2><div class="note">${T.feeNote}</div>
  <div class="zc"><span class="zn" style="background:var(--blue-bg)">◎</span><div class="zt"><b>${T.zT}</b><span>${T.zS}</span></div>
  <label><input data-fzonekm inputmode="numeric" aria-label="${T.zT}" value="${d.zoneKm}">${T.kmShort}</label></div>
  <label class="fld"><span>${T.zCenter} <small>${T.zCenterS}</small></span><input data-fzonell value="${esc(d.zoneLL)}" autocomplete="off" style="font-family:var(--fn)"></label>
@@ -3481,7 +3481,8 @@ function refresh(feesChanged){
  if(k==="home"){updateFeed();const n=$("#notes");if(n)n.innerHTML=notes();return}
  if(k==="t-form"||k==="t-shopform"||k==="checkout"||k==="login"||k==="return"||k==="s-pform")return;
  if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&$("#app").contains(ae)&&!(k==="t-products"||k==="t-shops"))return;
- if(k==="t-fees"&&!feesChanged&&ST.delivery)return;
+ /* the fee form keeps unsaved typing, so only the test-link / team part above it is redrawn */
+ if(k==="t-fees"&&!feesChanged&&ST.delivery){const c=$("#cfgtop");if(c&&!(ae&&c.contains(ae)))c.innerHTML=siteCfgHtml()+teamMailHtml();return}
  render(true);
 }
 
@@ -5417,7 +5418,7 @@ app.addEventListener("click",e=>{
   case "ctsave":guard(contactSave)();break;
   case "tmadd":guard(tmAdd)();break;
   case "pvtoggle":guard(async()=>{const on=!(ST.site&&ST.site.private);await H.db.doc("settings/site").set({...(ST.site||{}),private:on,at:Date.now()});toast(on?T.pvOn:T.pvOff)})();break;
-  case "invnew":guard(async()=>{const c=invCode();await H.db.doc("invites/"+c).set({createdAt:Date.now(),by:H.email||H.uid||"",note:String(S.invNote||"").trim()});S.invNote="";toast(T.pvMade)})();break;
+  case "invnew":guard(async()=>{const c=invCode();await H.db.doc("invites/"+c).set({createdAt:Date.now(),by:H.email||H.uid||"",note:String(S.invNote||"").trim()});S.invNote="";if(document.activeElement)document.activeElement.blur();refresh();toast(T.pvMade)})();break;
   case "invcopy":{const v=location.origin+"/?inv="+id;try{navigator.clipboard.writeText(v).then(()=>toast(T.copied),()=>toast(v))}catch(e){toast(v)}break}
   case "invdel":guard(async()=>{if(S.confirm!=="iv"+id){S.confirm="iv"+id;rr();return}S.confirm="";await H.db.doc("invites/"+id).delete()})();break;
   case "tmrm":guard(tmRm)(id);break;

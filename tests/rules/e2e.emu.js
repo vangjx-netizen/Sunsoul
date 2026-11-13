@@ -179,6 +179,11 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   ok(await isLocked(t2.pg) && (await t2.pg.textContent('body')).includes('ໃຊ້ແລ້ວ'), 'the same link a second time: “this invite was already used”');
   await team0.reload(); await wait(2500);
   ok(!(await isLocked(team0)), 'the team is never locked out');
+  // the team makes a link on the settings page: it shows up in the list right away, the name box is cleared
+  await team0.evaluate(() => { S.tab = 'team'; S.sub = 'fees'; render(); });
+  await team0.fill('[data-inv="1"]', 'Lang'); await team0.click('[data-x="invnew"]');
+  ok(await until(async () => (await team0.$$('[data-x="invcopy"]')).length > 0 && (await team0.textContent('#cfgtop')).includes('Lang')), 'settings page: a new invite link appears in the list at once');
+  ok(await team0.inputValue('[data-inv="1"]') === '', 'the name box is cleared after making the link');
   await stranger.reload(); await wait(2500);
   ok(!(await isLocked(stranger)), 'a shop owner (linked shop) is never locked out');
   await admin(d => setDoc(doc(d, 'settings/site'), { private: false }));
