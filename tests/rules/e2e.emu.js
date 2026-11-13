@@ -169,6 +169,8 @@ async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - 
   const t1 = await fresh('/?fb=1&inv=TRY23456');
   ok(!(await isLocked(t1.pg)) && await until(() => t1.pg.evaluate(() => document.body.textContent.includes('ສິນຄ້ານຳເຂົ້າ'))), 'invite link: the tester gets in and sees the products');
   ok(!(await t1.pg.evaluate(() => location.search.includes('inv='))), 'the invite code is removed from the address bar');
+  const left = await t1.pg.evaluate(() => JSON.parse(sessionStorage.getItem('ss_pass')).until - Date.now());
+  ok(left > 3.9 * 3600000 && left <= 4 * 3600000, 'an invite visit lasts 4 hours at most');
   const claimed = await admin(async d => (await getDoc(doc(d, 'invites/TRY23456'))).data());
   ok(!!claimed.claimedBy && claimed.claimedBy === await t1.pg.evaluate(() => H.uid), 'the invite is now marked as used by that tester');
   await t1.pg.reload(); await wait(2500);

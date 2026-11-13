@@ -2844,6 +2844,7 @@ function lockHtml(){
    <button class="cta" data-x="lggoogle" style="background:#fff;color:#1f1f1f;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px">${gLogo}<span>${T.gBtn}</span></button>
    ${S.lg&&S.lg.err?`<div class="err">${esc(S.lg.err)}</div>`:""}</div>`:""}`:`<div class="psub" style="text-align:center">${T.loading}</div>`}</main></div>`;
 }
+const INV_HOURS=4; /* how long one invite visit lasts (and only while that tab stays open) */
 async function claimInvite(){
  /* a device that has used an invite before is remembered on the server too (survives clearing the browser's storage) */
  if(H.db&&H.scoped&&H.uid){try{S.testerDoc=(await H.db.doc("testers/"+H.uid).get()).exists}catch(e){}}
@@ -2855,7 +2856,7 @@ async function claimInvite(){
   if(!snap.exists){S.invErr="bad";return}
   if((snap.data()||{}).claimedBy){S.invErr="used";return}
   await r.update({claimedBy:H.uid||"",claimedAt:Date.now()});
-  sessionStorage.setItem("ss_pass",JSON.stringify({code,until:Date.now()+12*3600000}));S.invErr="";
+  sessionStorage.setItem("ss_pass",JSON.stringify({code,until:Date.now()+INV_HOURS*3600000}));S.invErr="";
   try{localStorage.setItem("ss_tester",code)}catch(e){}
   try{await H.db.doc("testers/"+H.uid).set({code,at:Date.now()})}catch(e){}
  }catch(e){S.invErr="used"}
